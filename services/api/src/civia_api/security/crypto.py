@@ -14,6 +14,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from civia_api.config import get_settings
+from civia_api.security.keys import decode_key32
 
 log = logging.getLogger(__name__)
 _PREFIX = "v1."
@@ -29,10 +30,7 @@ def _aead() -> AESGCM:
     if configured is None:
         log.warning("DATA_ENCRYPTION_KEY no definido: clave efímera (solo desarrollo)")
         return AESGCM(AESGCM.generate_key(bit_length=256))
-    key = base64.urlsafe_b64decode(configured.get_secret_value())
-    if len(key) != 32:
-        raise ValueError("DATA_ENCRYPTION_KEY debe tener 32 bytes (AES-256)")
-    return AESGCM(key)
+    return AESGCM(decode_key32(configured.get_secret_value(), name="DATA_ENCRYPTION_KEY"))
 
 
 def encrypt_field(plaintext: str, *, context: str) -> str:
