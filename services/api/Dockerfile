@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Imagen mínima de la API: multi-stage, dependencias fijadas por uv.lock, usuario sin root.
 
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.14-slim-bookworm AS build
 COPY --from=ghcr.io/astral-sh/uv:0.8.22 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
@@ -11,7 +11,7 @@ RUN uv sync --frozen --no-dev --no-install-workspace --package civia-api
 COPY services/api services/api
 RUN uv sync --frozen --no-dev --package civia-api
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 RUN groupadd --system civia && useradd --system --gid civia --no-create-home civia
 WORKDIR /app
 COPY --from=build --chown=civia:civia /app /app
