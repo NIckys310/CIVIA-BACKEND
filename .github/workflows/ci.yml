@@ -1,0 +1,90 @@
+# CI de CIVIA: lint → tipos → tests → SAST/SCA → build.
+# Las acciones están fijadas por hash de commit (cadena de suministro); el comentario indica la versión.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secretos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  python:
+    name: API (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Instalar dependencias (lockfile congelado)
+        run: uv sync --frozen --python 3.12
+      - name: Ruff (lint + formato)
+        run: |
+          uv run ruff check services/api scripts
+          uv run ruff format --check services/api scripts
+      - name: Mypy estricto
+        run: uv run mypy services/api/src
+      - name: Bandit (SAST)
+        run: uv run bandit -q -r services/api/src
+      - name: Semgrep (SAST)
+        run: uvx semgrep scan --config p/python --config p/owasp-top-ten --error services/api/src
+      - name: pip-audit (SCA)
+        run: uv export --frozen --no-dev --no-hashes --package civia-api | uv run pip-audit --strict -r /dev/stdin
+      - name: Tests (Postgres 16 + pgvector embebido, RLS real)
+        working-directory: services/api
+        run: uv run pytest -q
+
+  node:
+    name: Web, móvil y paquetes (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Auditoría de dependencias de producción (SCA)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Contrato OpenAPI sincronizado
+        run: |
+          pipx install uv
+          uv sync --frozen --python 3.12
+          uv run python scripts/export_openapi.py
+          npm run generate -w @civia/shared-types
+          git diff --exit-code packages/shared-types
+      - name: Tipos
+        run: npx turbo run typecheck
+      - name: Tests (tokens, contraste WCAG, cliente API)
+        run: npx turbo run test
+      - name: Lint web
+        run: npm run lint -w @civia/web
+      - name: Build web
+        run: npm run build -w @civia/web
+
+  container:
+    name: Imagen de la API (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -f services/api/Dockerfile -t civia-api:ci .
+      - name: Escaneo de vulnerabilidades (falla con HIGH/CRITICAL)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 \
+            image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed civia-api:ci
