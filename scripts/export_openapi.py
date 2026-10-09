@@ -11,5 +11,9 @@ from civia_api.main import create_app
 
 OUT = Path(__file__).resolve().parent.parent / "packages" / "shared-types" / "openapi.json"
 
-OUT.write_text(json.dumps(create_app().openapi(), indent=2, ensure_ascii=False) + "\n", "utf-8")
+OUT.write_text(
+    json.dumps(create_app().openapi(), indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+    newline="\n",  # LF también en Windows: CI compara el contrato byte a byte
+)
 print(f"OpenAPI exportado a {OUT}")
