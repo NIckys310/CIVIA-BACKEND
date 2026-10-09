@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from civia_api.config import get_settings
+from civia_api.security.keys import decode_key32
 
 log = logging.getLogger(__name__)
 ALGORITHM = "EdDSA"
@@ -34,6 +35,9 @@ def _keys() -> tuple[Ed25519PrivateKey, Ed25519PublicKey]:
         )
         if not isinstance(key, Ed25519PrivateKey):
             raise ValueError("JWT_PRIVATE_KEY_PEM debe ser una clave Ed25519")
+    elif settings.jwt_signing_seed is not None:
+        seed = decode_key32(settings.jwt_signing_seed.get_secret_value(), name="JWT_SIGNING_SEED")
+        key = Ed25519PrivateKey.from_private_bytes(seed)
     else:
         log.warning("JWT_PRIVATE_KEY_PEM no definido: usando clave efímera (solo desarrollo)")
         key = Ed25519PrivateKey.generate()
