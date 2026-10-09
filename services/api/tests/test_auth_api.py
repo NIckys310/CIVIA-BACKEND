@@ -220,3 +220,26 @@ async def test_security_headers_present(client: AsyncClient) -> None:
     assert res.headers["x-frame-options"] == "DENY"
     assert "max-age" in res.headers["strict-transport-security"]
     assert res.headers["content-security-policy"].startswith("default-src 'none'")
+
+
+async def test_project_detail_and_activity_feed(client: AsyncClient) -> None:
+    email = _email()
+    await _register(client, email)
+    tokens = await _login_mobile(client, email)
+    me = (await client.get("/api/v1/me", headers=_bearer(tokens))).json()
+    headers = {**_bearer(tokens), "X-Organization-Id": me["memberships"][0]["organization_id"]}
+
+    created = (
+        await client.post("/api/v1/projects", json={"name": "Puente Río Claro"}, headers=headers)
+    ).json()
+    detail = await client.get(f"/api/v1/projects/{created['id']}", headers=headers)
+    assert detail.status_code == 200 and detail.json()["name"] == "Puente Río Claro"
+    missing = await client.get(f"/api/v1/projects/{uuid.uuid4()}", headers=headers)
+    assert missing.status_code == 404
+
+    feed = (await client.get("/api/v1/activity", headers=headers)).json()
+    actions = [a["action"] for a in feed]
+    assert actions[0] == "project.created"
+    assert "auth.register" in actions
+    assert all(not a.startswith("auth.login") for a in actions)
+    assert feed[0]["actor_name"] == "Ana Ruiz"

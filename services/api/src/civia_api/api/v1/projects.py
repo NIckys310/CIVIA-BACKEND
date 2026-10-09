@@ -1,8 +1,9 @@
 """Proyectos de la organización activa (cabecera X-Organization-Id)."""
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
 
 from civia_api.api.deps import OrgContext, SessionDep, client_ip, require
@@ -26,6 +27,20 @@ async def list_projects(session: SessionDep, ctx: CanRead) -> list[ProjectOut]:
         .order_by(Project.updated_at.desc())
     )
     return [ProjectOut.model_validate(p) for p in projects]
+
+
+@router.get("/{project_id}", response_model=ProjectOut)
+async def get_project(project_id: uuid.UUID, session: SessionDep, ctx: CanRead) -> ProjectOut:
+    project = await session.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.organization_id == ctx.organization_id,
+            Project.deleted_at.is_(None),
+        )
+    )
+    if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proyecto no encontrado.")
+    return ProjectOut.model_validate(project)
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)

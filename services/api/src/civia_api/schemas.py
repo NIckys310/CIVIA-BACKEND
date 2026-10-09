@@ -92,3 +92,15 @@ class ProjectOut(_Out):
     norm_version: str
     created_at: datetime
     updated_at: datetime
+
+
+# --- Actividad ----------------------------------------------------------------------
+
+
+class ActivityOut(BaseModel):
+    seq: int
+    occurred_at: datetime
+    action: str
+    actor_name: str | None
+    target_type: str | None
+    target_id: str | None
