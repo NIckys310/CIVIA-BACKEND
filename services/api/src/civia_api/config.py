@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +55,21 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
+
+    @field_validator(
+        "migrations_database_url",
+        "redis_url",
+        "jwt_private_key_pem",
+        "data_encryption_key",
+        "smtp_host",
+        "smtp_username",
+        "smtp_password",
+        mode="before",
+    )
+    @classmethod
+    def _blank_is_unset(cls, value: object) -> object:
+        """`CLAVE=` vacío en .env significa "no definido", no un secreto vacío."""
+        return None if isinstance(value, str) and not value.strip() else value
 
     @property
     def is_production_like(self) -> bool:
