@@ -51,7 +51,9 @@ async def is_breached_password(password: str, *, timeout_seconds: float = 3.0) -
     Si el servicio no responde se devuelve False (fail-open) para no bloquear registros;
     el evento se puede registrar aparte.
     """
-    digest = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()
+    # SHA-1 es el formato que exige la API de HIBP (k-anonymity); no protege nada por sí mismo.
+    sha1 = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False)  # nosemgrep
+    digest = sha1.hexdigest().upper()
     prefix, suffix = digest[:5], digest[5:]
     try:
         async with httpx.AsyncClient(timeout=timeout_seconds) as client:

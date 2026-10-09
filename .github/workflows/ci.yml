@@ -45,7 +45,7 @@ jobs:
       - name: Semgrep (SAST)
         run: uvx semgrep scan --config p/python --config p/owasp-top-ten --error services/api/src
       - name: pip-audit (SCA)
-        run: uv export --frozen --no-dev --no-hashes --package civia-api | uv run pip-audit --strict -r /dev/stdin
+        run: uv export --frozen --no-dev --no-hashes --package civia-api --no-emit-workspace | uv run pip-audit --strict -r /dev/stdin
       - name: Tests (Postgres 16 + pgvector embebido, RLS real)
         working-directory: services/api
         run: uv run pytest -q
