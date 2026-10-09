@@ -5,12 +5,14 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
     ForeignKey,
     Index,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -52,6 +54,20 @@ class User(UUIDPrimaryKey, Timestamps, SoftDelete, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # MFA (TOTP): semilla cifrada con AES-256-GCM (security.crypto), nunca en claro.
+    mfa_secret_enc: Mapped[str | None] = mapped_column(Text)
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_last_step: Mapped[int | None] = mapped_column(BigInteger)  # anti-reutilización
+
+    # Bloqueo de cuenta tras intentos fallidos consecutivos.
+    failed_login_count: Mapped[int] = mapped_column(default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def mfa_enabled(self) -> bool:
+        return self.mfa_enabled_at is not None
 
 
 class Membership(UUIDPrimaryKey, Timestamps, Base):
@@ -86,3 +102,38 @@ class RefreshToken(UUIDPrimaryKey, Base):
     rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     device_label: Mapped[str | None] = mapped_column(String(200))
     ip_address: Mapped[str | None] = mapped_column(String(45))
+
+
+class TokenPurpose(enum.StrEnum):
+    EMAIL_VERIFY = "email_verify"
+    PASSWORD_RESET = "password_reset"
+
+
+class UserToken(UUIDPrimaryKey, Base):
+    """Token de un solo uso enviado por correo. Solo se guarda su SHA-256."""
+
+    __tablename__ = "user_tokens"
+    __table_args__ = (Index("ix_user_tokens_user_purpose", "user_id", "purpose"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    purpose: Mapped[TokenPurpose] = mapped_column(
+        Enum(TokenPurpose, name="token_purpose", values_callable=lambda e: [m.value for m in e])
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MfaRecoveryCode(UUIDPrimaryKey, Base):
+    """Código de recuperación MFA de un solo uso (solo su SHA-256)."""
+
+    __tablename__ = "mfa_recovery_codes"
+    __table_args__ = (UniqueConstraint("user_id", "code_hash"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
