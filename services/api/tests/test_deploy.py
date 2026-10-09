@@ -10,17 +10,13 @@ from civia_api.deploy import enable_app_role
 async def test_enable_app_role_sets_escaped_password(database_urls: tuple[str, str]) -> None:
     admin_url, app_url = database_urls
     original = urlsplit(app_url).password or ""
-    parts = urlsplit(app_url)
     tricky = "p'w\"; DROP ROLE civia_app; --"
     try:
         await enable_app_role(admin_url, tricky)
-        conn = await asyncpg.connect(
-            host=parts.hostname,
-            port=parts.port,
-            user="civia_app",
-            password=tricky,
-            database=parts.path.lstrip("/"),
-        )
+        # La URL completa conserva el host (TCP en Windows, socket Unix en Linux); la
+        # contraseña explícita reemplaza a la que trae la URL.
+        dsn = app_url.replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(dsn, password=tricky)
         assert await conn.fetchval("SELECT current_user") == "civia_app"
         bypass = await conn.fetchval(
             "SELECT rolbypassrls FROM pg_roles WHERE rolname = 'civia_app'"
