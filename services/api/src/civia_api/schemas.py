@@ -36,7 +36,7 @@ class RefreshIn(BaseModel):
 
 class TokenOut(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105  (tipo de token OAuth2, no un secreto)
     expires_in: int
     refresh_token: str | None = None
 

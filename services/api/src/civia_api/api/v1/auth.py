@@ -31,9 +31,7 @@ def _is_mobile(x_client: str | None) -> bool:
     return x_client == "mobile"
 
 
-def _token_response(
-    response: Response, issued: auth.IssuedSession, *, mobile: bool
-) -> TokenOut:
+def _token_response(response: Response, issued: auth.IssuedSession, *, mobile: bool) -> TokenOut:
     access, ttl = create_access_token(issued.user_id, session_id=issued.family_id)
     if mobile:
         return TokenOut(access_token=access, expires_in=ttl, refresh_token=issued.refresh_token)
@@ -70,7 +68,10 @@ async def login(
 ) -> TokenOut:
     device = data.device_label or request.headers.get("user-agent", "")[:200] or None
     issued = await auth.login(
-        session, email=data.email, password=data.password, ip=client_ip(request),
+        session,
+        email=data.email,
+        password=data.password,
+        ip=client_ip(request),
         device_label=device,
     )
     return _token_response(response, issued, mobile=_is_mobile(x_client))
@@ -107,8 +108,12 @@ async def logout(
 ) -> None:
     await auth.revoke_family(session, current.user.id, current.session_id)
     await record_audit(
-        session, "auth.logout", actor_user_id=current.user.id, ip_address=client_ip(request),
-        target_type="session", target_id=str(current.session_id),
+        session,
+        "auth.logout",
+        actor_user_id=current.user.id,
+        ip_address=client_ip(request),
+        target_type="session",
+        target_id=str(current.session_id),
     )
     response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, secure=True, httponly=True)
 
@@ -118,8 +123,12 @@ async def sessions(session: SessionDep, current: CurrentUserDep) -> list[Session
     rows = await auth.list_sessions(session, current.user.id)
     return [
         SessionOut(
-            id=fid, device_label=device, ip_address=ip, started_at=started,
-            last_seen_at=last, current=fid == current.session_id,
+            id=fid,
+            device_label=device,
+            ip_address=ip,
+            started_at=started,
+            last_seen_at=last,
+            current=fid == current.session_id,
         )
         for fid, device, ip, started, last in rows
     ]
@@ -133,6 +142,10 @@ async def revoke_session(
     if not await auth.revoke_family(session, current.user.id, session_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sesión no encontrada.")
     await record_audit(
-        session, "auth.session.revoked", actor_user_id=current.user.id,
-        ip_address=client_ip(request), target_type="session", target_id=str(session_id),
+        session,
+        "auth.session.revoked",
+        actor_user_id=current.user.id,
+        ip_address=client_ip(request),
+        target_type="session",
+        target_id=str(session_id),
     )

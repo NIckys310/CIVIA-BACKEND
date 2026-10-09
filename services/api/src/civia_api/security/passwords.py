@@ -45,7 +45,7 @@ def password_policy_errors(password: str, *, email: str = "") -> list[str]:
     return errors
 
 
-async def is_breached_password(password: str, *, timeout: float = 3.0) -> bool:
+async def is_breached_password(password: str, *, timeout_seconds: float = 3.0) -> bool:
     """Consulta Have I Been Pwned con k-anonymity: solo sale de aquí el prefijo SHA-1 de 5 hex.
 
     Si el servicio no responde se devuelve False (fail-open) para no bloquear registros;
@@ -54,7 +54,7 @@ async def is_breached_password(password: str, *, timeout: float = 3.0) -> bool:
     digest = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()
     prefix, suffix = digest[:5], digest[5:]
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
             res = await client.get(
                 f"https://api.pwnedpasswords.com/range/{prefix}", headers={"Add-Padding": "true"}
             )

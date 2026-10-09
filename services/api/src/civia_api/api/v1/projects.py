@@ -33,7 +33,9 @@ async def create_project(
     data: ProjectIn, request: Request, session: SessionDep, ctx: CanCreate
 ) -> ProjectOut:
     count = await session.scalar(
-        select(func.count()).select_from(Project).where(Project.organization_id == ctx.organization_id)
+        select(func.count())
+        .select_from(Project)
+        .where(Project.organization_id == ctx.organization_id)
     )
     project = Project(
         organization_id=ctx.organization_id,
@@ -47,13 +49,19 @@ async def create_project(
     await session.flush()
     session.add(
         ProjectMember(
-            organization_id=ctx.organization_id, project_id=project.id, user_id=ctx.user.id,
+            organization_id=ctx.organization_id,
+            project_id=project.id,
+            user_id=ctx.user.id,
             role=ctx.role,
         )
     )
     await record_audit(
-        session, "project.created", organization_id=ctx.organization_id,
-        actor_user_id=ctx.user.id, target_type="project", target_id=str(project.id),
+        session,
+        "project.created",
+        organization_id=ctx.organization_id,
+        actor_user_id=ctx.user.id,
+        target_type="project",
+        target_id=str(project.id),
         ip_address=client_ip(request),
     )
     await session.refresh(project)

@@ -13,7 +13,12 @@ router = APIRouter(tags=["me"])
 @router.get("/me", response_model=MeOut)
 async def me(session: SessionDep, current: CurrentUserDep) -> MeOut:
     rows = await session.execute(
-        select(Membership.organization_id, Organization.name, Organization.country_code, Membership.role)
+        select(
+            Membership.organization_id,
+            Organization.name,
+            Organization.country_code,
+            Membership.role,
+        )
         .join(Organization, Organization.id == Membership.organization_id)
         .where(Membership.user_id == current.user.id, Organization.deleted_at.is_(None))
         .order_by(Organization.name)

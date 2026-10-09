@@ -5,7 +5,12 @@ from collections.abc import AsyncIterator
 from functools import lru_cache
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from civia_api.config import get_settings
 
@@ -20,7 +25,7 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(get_engine(), expire_on_commit=False)
 
 
-class CommitOnError(Exception):  # noqa: N818  (no es un error de la BD, es una señal)
+class CommitOnError(Exception):
     """Excepción de dominio cuyos efectos previos SÍ deben persistir.
 
     Ejemplo: un login fallido se rechaza, pero su evento de auditoría y el contador de

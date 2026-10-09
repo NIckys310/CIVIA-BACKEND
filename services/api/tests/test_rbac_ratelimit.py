@@ -1,3 +1,5 @@
+import itertools
+
 from civia_api.models import Role
 from civia_api.security.ratelimit import MemoryRateLimiter
 from civia_api.security.rbac import ROLE_PERMISSIONS, Permission, has_permission
@@ -18,7 +20,7 @@ def test_viewer_is_read_only() -> None:
 
 def test_permissions_are_monotonic_by_role() -> None:
     order = [Role.VIEWER, Role.COLLABORATOR, Role.REVIEWER, Role.ENGINEER_IN_CHARGE, Role.ADMIN]
-    for lower, higher in zip(order, order[1:], strict=False):
+    for lower, higher in itertools.pairwise(order):
         assert ROLE_PERMISSIONS[lower] <= ROLE_PERMISSIONS[higher]
 
 

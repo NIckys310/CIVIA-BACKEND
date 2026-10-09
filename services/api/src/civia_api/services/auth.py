@@ -57,9 +57,7 @@ async def register(session: AsyncSession, data: RegisterIn, *, ip: str | None) -
     if errors := passwords.password_policy_errors(data.password, email=email):
         raise AuthError(" ".join(errors), status=422)
     if get_settings().hibp_check_enabled and await passwords.is_breached_password(data.password):
-        raise AuthError(
-            "Esta contraseña aparece en filtraciones públicas. Elige otra.", status=422
-        )
+        raise AuthError("Esta contraseña aparece en filtraciones públicas. Elige otra.", status=422)
     if await session.scalar(select(User.id).where(User.email == email)):
         # Mensaje genérico: no confirma si el correo ya existe.
         raise AuthError("No fue posible completar el registro con esos datos.", status=409)
@@ -75,7 +73,11 @@ async def register(session: AsyncSession, data: RegisterIn, *, ip: str | None) -
 
     org_id = uuid7()
     await set_tenant_context(session, user_id=user.id, org_id=org_id)
-    session.add(Organization(id=org_id, name=data.organization_name.strip(), slug=_slugify(data.organization_name)))
+    session.add(
+        Organization(
+            id=org_id, name=data.organization_name.strip(), slug=_slugify(data.organization_name)
+        )
+    )
     await session.flush()
     session.add(Membership(organization_id=org_id, user_id=user.id, role=Role.ADMIN))
     await record_audit(
@@ -91,15 +93,21 @@ async def login(
     email = normalize_email(email)
     limiter = get_rate_limiter()
     window = settings.login_window_seconds
-    allowed_ip = await limiter.hit(f"login:ip:{ip}", limit=settings.login_max_attempts * 4, window_seconds=window)
-    allowed_email = await limiter.hit(f"login:email:{email}", limit=settings.login_max_attempts, window_seconds=window)
-    if not (allowed_ip and allowed_email):
-        await record_audit(session, "auth.login.rate_limited", ip_address=ip, details={"email": email})
-        raise AuthError("Demasiados intentos. Espera unos minutos e inténtalo de nuevo.", status=429)
-
-    user = await session.scalar(
-        select(User).where(User.email == email, User.deleted_at.is_(None))
+    allowed_ip = await limiter.hit(
+        f"login:ip:{ip}", limit=settings.login_max_attempts * 4, window_seconds=window
     )
+    allowed_email = await limiter.hit(
+        f"login:email:{email}", limit=settings.login_max_attempts, window_seconds=window
+    )
+    if not (allowed_ip and allowed_email):
+        await record_audit(
+            session, "auth.login.rate_limited", ip_address=ip, details={"email": email}
+        )
+        raise AuthError(
+            "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.", status=429
+        )
+
+    user = await session.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
     # verify_password usa un hash ficticio si el usuario no existe (tiempo constante).
     valid = passwords.verify_password(user.password_hash if user else None, password)
     if not user or not valid or not user.is_active:
@@ -119,8 +127,12 @@ async def login(
 
     issued = await _issue(session, user.id, family_id=uuid7(), ip=ip, device_label=device_label)
     await record_audit(
-        session, "auth.login.succeeded", actor_user_id=user.id, ip_address=ip,
-        target_type="session", target_id=str(issued.family_id),
+        session,
+        "auth.login.succeeded",
+        actor_user_id=user.id,
+        ip_address=ip,
+        target_type="session",
+        target_id=str(issued.family_id),
     )
     return issued
 
@@ -139,7 +151,8 @@ async def _issue(
             user_id=user_id,
             family_id=family_id,
             token_hash=digest,
-            expires_at=datetime.now(UTC) + timedelta(seconds=get_settings().refresh_token_ttl_seconds),
+            expires_at=datetime.now(UTC)
+            + timedelta(seconds=get_settings().refresh_token_ttl_seconds),
             device_label=device_label,
             ip_address=ip,
         )
@@ -168,8 +181,12 @@ async def rotate(session: AsyncSession, refresh_token: str, *, ip: str | None) -
             raise AuthError("Sesión en uso por otra petición. Reintenta.", status=409)
         await revoke_family(session, record.user_id, record.family_id)
         await record_audit(
-            session, "auth.refresh.reuse_detected", actor_user_id=record.user_id, ip_address=ip,
-            target_type="session", target_id=str(record.family_id),
+            session,
+            "auth.refresh.reuse_detected",
+            actor_user_id=record.user_id,
+            ip_address=ip,
+            target_type="session",
+            target_id=str(record.family_id),
         )
         raise AuthError("Sesión revocada por seguridad. Inicia sesión de nuevo.")
 
@@ -225,9 +242,7 @@ async def list_sessions(
         .where(RefreshToken.user_id == user_id)
         .group_by(RefreshToken.family_id)
         .having(
-            func.bool_or(
-                RefreshToken.revoked_at.is_(None) & (RefreshToken.expires_at > func.now())
-            )
+            func.bool_or(RefreshToken.revoked_at.is_(None) & (RefreshToken.expires_at > func.now()))
         )
         .order_by(func.max(RefreshToken.created_at).desc())
     )

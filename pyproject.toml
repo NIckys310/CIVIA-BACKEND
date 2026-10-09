@@ -10,9 +10,12 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "N", "UP", "B", "S", "A", "C4", "SIM", "RUF", "ASYNC"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # tildes y símbolos (Ø, ×) son válidos en textos es-CO
 
+[tool.ruff.lint.isort]
+known-first-party = ["civia_api"]
+
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "S105", "S106"]
-"**/alembic/versions/**" = ["E501"]
+"**/alembic/versions/**" = ["E501", "S608"]  # DDL constante, sin entrada de usuario
 
 [tool.mypy]
 python_version = "3.12"

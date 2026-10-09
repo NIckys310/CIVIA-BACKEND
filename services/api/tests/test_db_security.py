@@ -22,9 +22,7 @@ async def _make_org_with_project(name: str) -> tuple[uuid.UUID, uuid.UUID]:
         s.add(Organization(id=org_id, name=name, slug=str(org_id)))
         await s.flush()
         s.add(Membership(organization_id=org_id, user_id=user_id, role=Role.ADMIN))
-        s.add(
-            Project(organization_id=org_id, code="P-1", name=f"Obra {name}", created_by=user_id)
-        )
+        s.add(Project(organization_id=org_id, code="P-1", name=f"Obra {name}", created_by=user_id))
     return org_id, user_id
 
 

@@ -22,7 +22,12 @@ def _email() -> str:
 async def _register(client: AsyncClient, email: str, org: str = "Constructora Andina") -> None:
     res = await client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "full_name": "Ana Ruiz", "organization_name": org},
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "full_name": "Ana Ruiz",
+            "organization_name": org,
+        },
     )
     assert res.status_code == 201, res.text
 
@@ -54,7 +59,12 @@ async def test_duplicate_registration_is_generic(client: AsyncClient) -> None:
     await _register(client, email)
     res = await client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "full_name": "Otra", "organization_name": "X S.A.S"},
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "full_name": "Otra",
+            "organization_name": "X S.A.S",
+        },
     )
     assert res.status_code == 409
     assert "registr" in res.json()["detail"]
@@ -63,7 +73,12 @@ async def test_duplicate_registration_is_generic(client: AsyncClient) -> None:
 async def test_weak_password_is_rejected(client: AsyncClient) -> None:
     res = await client.post(
         "/api/v1/auth/register",
-        json={"email": _email(), "password": "corta", "full_name": "Ana", "organization_name": "Obra"},
+        json={
+            "email": _email(),
+            "password": "corta",
+            "full_name": "Ana",
+            "organization_name": "Obra",
+        },
     )
     assert res.status_code == 422
 
@@ -72,7 +87,9 @@ async def test_wrong_password_and_unknown_user_look_identical(client: AsyncClien
     email = _email()
     await _register(client, email)
     wrong = await client.post("/api/v1/auth/login", json={"email": email, "password": "x" * 12})
-    unknown = await client.post("/api/v1/auth/login", json={"email": _email(), "password": "x" * 12})
+    unknown = await client.post(
+        "/api/v1/auth/login", json={"email": _email(), "password": "x" * 12}
+    )
     assert wrong.status_code == unknown.status_code == 401
     assert wrong.json() == unknown.json()
 
@@ -81,7 +98,11 @@ async def test_login_is_rate_limited(client: AsyncClient) -> None:
     email = _email()
     await _register(client, email)
     codes = [
-        (await client.post("/api/v1/auth/login", json={"email": email, "password": "mala-clave-123"})).status_code
+        (
+            await client.post(
+                "/api/v1/auth/login", json={"email": email, "password": "mala-clave-123"}
+            )
+        ).status_code
         for _ in range(6)
     ]
     assert codes[:5] == [401] * 5
@@ -149,7 +170,9 @@ async def test_remote_logout_kills_other_device(client: AsyncClient) -> None:
     assert len(sessions) == 2
     phone_session = next(s for s in sessions if not s["current"])
 
-    res = await client.delete(f"/api/v1/auth/sessions/{phone_session['id']}", headers=_bearer(laptop))
+    res = await client.delete(
+        f"/api/v1/auth/sessions/{phone_session['id']}", headers=_bearer(laptop)
+    )
     assert res.status_code == 204
     assert (await client.get("/api/v1/me", headers=_bearer(phone))).status_code == 401
     assert (await client.get("/api/v1/me", headers=_bearer(laptop))).status_code == 200
@@ -161,8 +184,12 @@ async def test_projects_are_isolated_across_organizations_via_api(client: AsyncC
     await _register(client, bob, org="Ingeniería Beta")
     a = await _login_mobile(client, alice)
     b = await _login_mobile(client, bob)
-    org_a = (await client.get("/api/v1/me", headers=_bearer(a))).json()["memberships"][0]["organization_id"]
-    org_b = (await client.get("/api/v1/me", headers=_bearer(b))).json()["memberships"][0]["organization_id"]
+    org_a = (await client.get("/api/v1/me", headers=_bearer(a))).json()["memberships"][0][
+        "organization_id"
+    ]
+    org_b = (await client.get("/api/v1/me", headers=_bearer(b))).json()["memberships"][0][
+        "organization_id"
+    ]
 
     created = await client.post(
         "/api/v1/projects",
@@ -182,7 +209,9 @@ async def test_projects_are_isolated_across_organizations_via_api(client: AsyncC
 
 async def test_unauthenticated_requests_are_rejected(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/me")).status_code == 401
-    assert (await client.get("/api/v1/me", headers={"Authorization": "Bearer basura"})).status_code == 401
+    assert (
+        await client.get("/api/v1/me", headers={"Authorization": "Bearer basura"})
+    ).status_code == 401
 
 
 async def test_security_headers_present(client: AsyncClient) -> None:
