@@ -1,6 +1,9 @@
-# Blueprint de Render: API de CIVIA (Docker) + Redis (Key Value).
-# Render → New → Blueprint → este repo. Pide solo MIGRATIONS_DATABASE_URL (Neon) y WEB_BASE_URL.
-# Los secretos con `generateValue` los genera Render (base64 de 256 bits): nunca están en el repo.
+# Blueprint de Render: API de CIVIA (Docker) + PostgreSQL + Redis (Key Value).
+# Render → New → Blueprint → este repo. Solo pide WEB_BASE_URL.
+# Ninguna persona maneja secretos: la URL de la base de datos y las claves (`generateValue`,
+# base64 de 256 bits) las crea y conecta Render. Nada de esto está en el repositorio.
+# Nota: la base de datos del plan gratuito de Render caduca a los 30 días (ver docs/guides/deploy.md
+# para usar Neon como base de datos permanente).
 services:
   - type: web
     name: civia-api
@@ -15,9 +18,11 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
-      # URL "direct" (sin -pooler) del rol propietario de Neon. Solo la usan las migraciones.
+      # Rol propietario de la base de datos: solo lo usan las migraciones (`civia_api.deploy`).
       - key: MIGRATIONS_DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: civia-db
+          property: connectionString
       # La API se conecta como civia_app (sin privilegios, sujeto a RLS) con esta contraseña.
       - key: APP_DB_PASSWORD
         generateValue: true
@@ -46,4 +51,12 @@ services:
     plan: free
     region: virginia
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # sin acceso desde internet: solo servicios de Render
+
+databases:
+  - name: civia-db
+    plan: free
+    region: virginia
+    postgresMajorVersion: "16"
+    databaseName: civia
     ipAllowList: [] # sin acceso desde internet: solo servicios de Render
