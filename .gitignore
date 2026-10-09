@@ -52,3 +52,9 @@ Thumbs.db
 
 # Postgres embebido de desarrollo (scripts/dev_api.py)
 .devdb/
+
+# Configuración local del entorno de Claude Code
+.claude/
+
+# Generado por Next.js
+next-env.d.ts
