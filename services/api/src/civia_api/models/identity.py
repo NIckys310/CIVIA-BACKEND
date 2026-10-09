@@ -1,0 +1,90 @@
+"""Usuarios, organizaciones (tenants), membresías y tokens de refresco."""
+
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from civia_api.db.base import Base, SoftDelete, Timestamps, UUIDPrimaryKey
+
+
+class Role(enum.StrEnum):
+    """Roles RBAC. El orden refleja privilegio decreciente."""
+
+    ADMIN = "admin"
+    ENGINEER_IN_CHARGE = "engineer_in_charge"  # Ingeniero responsable
+    REVIEWER = "reviewer"  # Revisor
+    COLLABORATOR = "collaborator"  # Colaborador
+    VIEWER = "viewer"  # Lector
+
+
+role_enum = Enum(Role, name="role", values_callable=lambda e: [m.value for m in e])
+
+
+class Organization(UUIDPrimaryKey, Timestamps, SoftDelete, Base):
+    __tablename__ = "organizations"
+
+    name: Mapped[str] = mapped_column(String(160))
+    slug: Mapped[str] = mapped_column(String(80), unique=True)
+    country_code: Mapped[str] = mapped_column(String(2), default="CO")
+    default_norm_code: Mapped[str] = mapped_column(String(40), default="NSR-10")
+
+
+class User(UUIDPrimaryKey, Timestamps, SoftDelete, Base):
+    __tablename__ = "users"
+
+    # Se guarda siempre en minúsculas (ver services.auth); índice único sobre el valor normalizado.
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    full_name: Mapped[str] = mapped_column(String(160))
+    locale: Mapped[str] = mapped_column(String(10), default="es-CO")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Membership(UUIDPrimaryKey, Timestamps, Base):
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("organization_id", "user_id"),)
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[Role] = mapped_column(role_enum)
+
+
+class RefreshToken(UUIDPrimaryKey, Base):
+    """Token de refresco opaco. Solo se guarda su SHA-256.
+
+    Todos los tokens de una misma sesión comparten `family_id`; si un token ya
+    rotado se reutiliza, se revoca la familia completa (detección de robo).
+    """
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (Index("ix_refresh_tokens_user_family", "user_id", "family_id"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    family_id: Mapped[uuid.UUID] = mapped_column()
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    device_label: Mapped[str | None] = mapped_column(String(200))
+    ip_address: Mapped[str | None] = mapped_column(String(45))
