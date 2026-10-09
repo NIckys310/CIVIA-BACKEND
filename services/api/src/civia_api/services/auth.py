@@ -11,29 +11,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from civia_api.config import get_settings
 from civia_api.db.ids import uuid7
-from civia_api.db.session import CommitOnError, set_tenant_context
+from civia_api.db.session import set_tenant_context
 from civia_api.models import Membership, Organization, RefreshToken, Role, User
 from civia_api.schemas import RegisterIn
 from civia_api.security import passwords
 from civia_api.security.ratelimit import get_rate_limiter
-from civia_api.security.tokens import hash_refresh_token, new_refresh_token
+from civia_api.security.tokens import (
+    InvalidTokenError,
+    create_mfa_challenge,
+    decode_mfa_challenge,
+    hash_refresh_token,
+    new_refresh_token,
+)
+from civia_api.services import account
 from civia_api.services.audit import record_audit
+from civia_api.services.errors import AuthError
 
 # Margen para refrescos concurrentes legítimos (p. ej. dos pestañas a la vez).
 REUSE_GRACE = timedelta(seconds=10)
-
-
-class AuthError(CommitOnError):
-    """Error de autenticación con mensaje seguro para mostrar al usuario.
-
-    Hereda de CommitOnError: la auditoría y las revocaciones previas al error persisten.
-    Por eso todas las validaciones de `register` ocurren antes de escribir nada.
-    """
-
-    def __init__(self, message: str, *, status: int = 401) -> None:
-        super().__init__(message)
-        self.message = message
-        self.status = status
 
 
 @dataclass(frozen=True)
@@ -41,6 +36,16 @@ class IssuedSession:
     user_id: uuid.UUID
     family_id: uuid.UUID
     refresh_token: str
+
+
+@dataclass(frozen=True)
+class MfaRequired:
+    """La contraseña es correcta pero falta el segundo factor."""
+
+    challenge_token: str
+
+
+__all__ = ["AuthError", "IssuedSession", "MfaRequired"]
 
 
 def normalize_email(email: str) -> str:
@@ -83,12 +88,13 @@ async def register(session: AsyncSession, data: RegisterIn, *, ip: str | None) -
     await record_audit(
         session, "auth.register", organization_id=org_id, actor_user_id=user.id, ip_address=ip
     )
+    await account.send_verification_email(session, user)
     return user
 
 
 async def login(
     session: AsyncSession, *, email: str, password: str, ip: str | None, device_label: str | None
-) -> IssuedSession:
+) -> IssuedSession | MfaRequired:
     settings = get_settings()
     email = normalize_email(email)
     limiter = get_rate_limiter()
@@ -108,9 +114,16 @@ async def login(
         )
 
     user = await session.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
+    if user is not None and account.is_locked(user):
+        # Mismo mensaje que el rate limit: no revela que la cuenta existe.
+        await record_audit(session, "auth.login.locked", actor_user_id=user.id, ip_address=ip)
+        raise AuthError(account.LOCKED_MESSAGE, status=429)
+
     # verify_password usa un hash ficticio si el usuario no existe (tiempo constante).
     valid = passwords.verify_password(user.password_hash if user else None, password)
     if not user or not valid or not user.is_active:
+        if user is not None and not valid:
+            await account.register_failure(session, user, ip=ip)
         await record_audit(
             session,
             "auth.login.failed",
@@ -122,9 +135,43 @@ async def login(
 
     if passwords.needs_rehash(user.password_hash):
         user.password_hash = passwords.hash_password(password)
-    user.last_login_at = datetime.now(UTC)
+    account.clear_failures(user)
     await limiter.reset(f"login:email:{email}")
 
+    if user.mfa_enabled:
+        await record_audit(session, "auth.login.mfa_required", actor_user_id=user.id, ip_address=ip)
+        return MfaRequired(create_mfa_challenge(user.id, device_label=device_label))
+    return await complete_login(session, user, ip=ip, device_label=device_label)
+
+
+async def verify_mfa_login(
+    session: AsyncSession,
+    *,
+    challenge_token: str,
+    code: str | None,
+    recovery_code: str | None,
+    ip: str | None,
+) -> IssuedSession:
+    try:
+        claims = decode_mfa_challenge(challenge_token)
+        user_id = uuid.UUID(claims["sub"])
+    except (InvalidTokenError, ValueError, KeyError):
+        raise AuthError("La verificación expiró. Inicia sesión de nuevo.") from None
+    user = await session.get(User, user_id, with_for_update=True)
+    if user is None or not user.is_active or user.deleted_at is not None or not user.mfa_enabled:
+        raise AuthError("La verificación expiró. Inicia sesión de nuevo.")
+    await account.check_login_second_factor(
+        session, user, code=code, recovery_code=recovery_code, ip=ip
+    )
+    account.clear_failures(user)
+    return await complete_login(session, user, ip=ip, device_label=claims.get("dev"))
+
+
+async def complete_login(
+    session: AsyncSession, user: User, *, ip: str | None, device_label: str | None
+) -> IssuedSession:
+    await account.notify_if_new_device(session, user, device_label=device_label, ip=ip)
+    user.last_login_at = datetime.now(UTC)
     issued = await _issue(session, user.id, family_id=uuid7(), ip=ip, device_label=device_label)
     await record_audit(
         session,

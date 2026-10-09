@@ -69,6 +69,10 @@ class User(UUIDPrimaryKey, Timestamps, SoftDelete, Base):
     def mfa_enabled(self) -> bool:
         return self.mfa_enabled_at is not None
 
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
 
 class Membership(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "memberships"
