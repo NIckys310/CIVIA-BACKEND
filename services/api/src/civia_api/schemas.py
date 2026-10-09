@@ -34,6 +34,72 @@ class RefreshIn(BaseModel):
     refresh_token: str | None = Field(default=None, max_length=200)
 
 
+class LoginOut(BaseModel):
+    """Respuesta del login: tokens, o bien un desafío de segundo factor (`mfa_required`)."""
+
+    mfa_required: bool = False
+    mfa_token: str | None = None
+    access_token: str | None = None
+    token_type: str = "bearer"  # noqa: S105  (tipo de token OAuth2, no un secreto)
+    expires_in: int | None = None
+    refresh_token: str | None = None
+
+
+class MfaVerifyIn(BaseModel):
+    mfa_token: str = Field(max_length=2000)
+    code: str | None = Field(default=None, max_length=10)
+    recovery_code: str | None = Field(default=None, max_length=20)
+
+
+class MfaSetupOut(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MfaCodeIn(BaseModel):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaDisableIn(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    code: str | None = Field(default=None, max_length=10)
+    recovery_code: str | None = Field(default=None, max_length=20)
+
+
+class RecoveryCodesOut(BaseModel):
+    codes: list[str]
+
+
+class MfaStatusOut(BaseModel):
+    enabled: bool
+    recovery_codes_remaining: int
+
+
+class EmailTokenIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=1, max_length=256)
+
+
+class SecurityEventOut(BaseModel):
+    occurred_at: datetime
+    action: str
+    ip_address: str | None
+    device: str | None
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"  # noqa: S105  (tipo de token OAuth2, no un secreto)
@@ -58,6 +124,8 @@ class UserOut(_Out):
     email: str
     full_name: str
     locale: str
+    email_verified: bool
+    mfa_enabled: bool
 
 
 class MembershipOut(BaseModel):

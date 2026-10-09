@@ -13,7 +13,16 @@ from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response,
 
 from civia_api.api.deps import CurrentUserDep, SessionDep, client_ip
 from civia_api.config import get_settings
-from civia_api.schemas import LoginIn, RefreshIn, RegisterIn, SessionOut, TokenOut, UserOut
+from civia_api.schemas import (
+    LoginIn,
+    LoginOut,
+    MfaVerifyIn,
+    RefreshIn,
+    RegisterIn,
+    SessionOut,
+    TokenOut,
+    UserOut,
+)
 from civia_api.security.tokens import create_access_token
 from civia_api.services import auth
 from civia_api.services.audit import record_audit
@@ -58,21 +67,44 @@ async def register(data: RegisterIn, request: Request, session: SessionDep) -> U
     return UserOut.model_validate(user)
 
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=LoginOut)
 async def login(
     data: LoginIn,
     request: Request,
     response: Response,
     session: SessionDep,
     x_client: ClientHeader = None,
-) -> TokenOut:
+) -> LoginOut:
+    """Paso 1. Si la cuenta tiene MFA, devuelve `mfa_required` y un `mfa_token` de 5 min."""
     device = data.device_label or request.headers.get("user-agent", "")[:200] or None
-    issued = await auth.login(
+    result = await auth.login(
         session,
         email=data.email,
         password=data.password,
         ip=client_ip(request),
         device_label=device,
+    )
+    if isinstance(result, auth.MfaRequired):
+        return LoginOut(mfa_required=True, mfa_token=result.challenge_token)
+    tokens = _token_response(response, result, mobile=_is_mobile(x_client))
+    return LoginOut(**tokens.model_dump())
+
+
+@router.post("/mfa/verify", response_model=TokenOut)
+async def verify_mfa(
+    data: MfaVerifyIn,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    x_client: ClientHeader = None,
+) -> TokenOut:
+    """Paso 2 del login: código TOTP de 6 dígitos o un código de recuperación."""
+    issued = await auth.verify_mfa_login(
+        session,
+        challenge_token=data.mfa_token,
+        code=data.code,
+        recovery_code=data.recovery_code,
+        ip=client_ip(request),
     )
     return _token_response(response, issued, mobile=_is_mobile(x_client))
 
