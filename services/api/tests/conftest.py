@@ -61,3 +61,12 @@ async def client() -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=create_app())
     async with AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limiter() -> Iterator[None]:
+    """Cada test empieza con contadores limpios (todos los logins vienen de la misma IP)."""
+    from civia_api.security.ratelimit import get_rate_limiter
+
+    get_rate_limiter.cache_clear()
+    yield
