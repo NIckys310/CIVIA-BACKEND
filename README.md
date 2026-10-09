@@ -1,84 +1,76 @@
-# CIVIA AI
+# CIVIA — Backend
 
-**El copiloto digital del ingeniero civil.** Planos + IA + normativa + biblioteca técnica +
-motor de cálculo + medición con celular + visualización 2D/3D + reportes.
+API de **CIVIA AI**, el copiloto digital del ingeniero civil: FastAPI + PostgreSQL 16 (pgvector,
+Row-Level Security) + Redis + almacenamiento S3.
 
 ```
-IA → interpreta
-Motor de ingeniería → calcula (determinista, sin LLM)
-Normativa → establece criterios
-Ingeniero → valida
+IA → interpreta · Motor de ingeniería → calcula · Normativa → establece criterios · Ingeniero → valida
 ```
 
 > Toda salida de CIVIA requiere revisión y aprobación del profesional responsable.
 
-**Estado:** Fase 0 — Fundaciones ✔ (auth, RBAC, multi-tenant con RLS, auditoría, web, PWA y app móvil).
+| Repositorio | Contenido |
+|---|---|
+| [CIVIA-FRONTEND](https://github.com/NIckys310/CIVIA-FRONTEND) | Web (Next.js, PWA) y app móvil (Expo) |
+| **CIVIA-BACKEND** (este) | API, base de datos, infraestructura, motor de cálculo (Fase 2) |
+| [CIVIA-IA](https://github.com/NIckys310/CIVIA-IA) | Visión, OCR, RAG con citas y orquestación del LLM |
 
-## Estructura
+## Qué incluye
 
-```
-apps/web            Next.js 16 · PWA (escritorio, tableta y móvil)
-apps/mobile         Expo SDK 57 · Android (APK/AAB) e iOS (IPA)
-services/api        FastAPI · PostgreSQL 16 + pgvector · Alembic
-packages/ui         Design tokens + iconos de ingeniería (web y móvil)
-packages/shared-types  Tipos TS generados del OpenAPI
-packages/api-client Cliente tipado con refresco de sesión
-infra/              docker-compose (Postgres, Redis, MinIO, API)
-docs/               Arquitectura, ER, seguridad, ADRs y guías
-```
+- Autenticación: Argon2id, JWT EdDSA de 10 min, refresh rotativo con detección de reutilización.
+- **Verificación en dos pasos (TOTP)** con códigos de recuperación y anti-reutilización.
+- Bloqueo de cuenta, verificación de correo, recuperación/cambio de contraseña, avisos de
+  dispositivo nuevo e historial de seguridad.
+- Multi-tenant con **RLS** (rol `civia_app` sin privilegios), RBAC de 5 roles.
+- Auditoría append-only con cadena de hashes SHA-256.
+- Secretos de usuario cifrados en reposo (AES-256-GCM).
 
 ## Requisitos
 
-- Node.js ≥ 22 (probado con 24) y npm
 - Python 3.12 vía [uv](https://docs.astral.sh/uv/) (`pip install uv`)
-- Opcional: Docker Desktop (Postgres/Redis/MinIO). Sin Docker se usa Postgres embebido.
+- Opcional: Docker Desktop. Sin Docker se usa PostgreSQL 16 + pgvector embebido.
 
 ## Puesta en marcha
 
 ```bash
-npm install
 uv sync --python 3.12
-cp .env.example .env        # y reemplaza los valores "change-me"
+cp .env.example .env              # reemplaza los valores "change-me"
 ```
 
-**Opción A — sin Docker (Postgres 16 + pgvector embebido):**
+Sin Docker (Postgres embebido en `.devdb/`):
 
 ```bash
-.venv/Scripts/python scripts/dev_api.py      # Windows (Linux/macOS: .venv/bin/python)
-npm run dev -w @civia/web                    # http://localhost:3000
+.venv/Scripts/python scripts/dev_api.py            # Windows; Linux/macOS: .venv/bin/python
 ```
 
-Si el puerto 8000 está ocupado: `CIVIA_API_PORT=8010` para la API y
-`NEXT_PUBLIC_API_URL=http://localhost:8010` para la web.
-
-**Opción B — con Docker:**
+Con Docker:
 
 ```bash
 docker compose -f infra/docker-compose.yml --env-file .env up -d
-npm run dev -w @civia/web
 ```
 
-**App móvil:** `npm run dev -w @civia/mobile` (Expo Go o development build).
-Para generar APK/IPA ver [docs/guides/mobile-builds.md](docs/guides/mobile-builds.md).
+Documentación interactiva: `http://localhost:8000/api/docs`.
+Si el puerto 8000 está ocupado: `CIVIA_API_PORT=8010`.
 
 ## Calidad
 
 ```bash
-cd services/api && ../../.venv/Scripts/python -m pytest      # API: Postgres real + RLS
-npx turbo run typecheck test                                  # TypeScript + tests de paquetes
-uv run ruff check services/api && uv run mypy services/api/src
+cd services/api && ../../.venv/Scripts/python -m pytest      # Postgres real, RLS incluido
+uv run ruff check services/api scripts && uv run mypy services/api/src
 ```
 
-Contrato: después de cambiar la API, `python scripts/export_openapi.py` y
-`npm run generate -w @civia/shared-types` (CI falla si están desincronizados).
+## Contrato con el frontend
+
+`services/api/openapi.json` es el contrato publicado. Si cambias la API:
+
+```bash
+.venv/Scripts/python scripts/export_openapi.py
+```
+
+y en CIVIA-FRONTEND ejecuta `npm run contract:sync` para regenerar los tipos.
 
 ## Documentación
 
-- [Arquitectura](docs/architecture.md) · [Modelo de datos](docs/database/er.md)
-- [Modelo de amenazas](docs/security/threat-model.md) · [Política de seguridad](SECURITY.md)
-- [Decisiones de arquitectura (ADR)](docs/adr/)
-
-## Convenciones
-
-Conventional Commits, commits pequeños y atómicos; `main` ← `develop` ← `feat/<módulo>-<desc>`.
-Nunca se commitean secretos, `.env`, datasets protegidos ni normas con derechos restringidos.
+[Arquitectura](docs/architecture.md) · [Modelo de datos](docs/database/er.md) ·
+[Modelo de amenazas](docs/security/threat-model.md) · [ADRs](docs/adr/) ·
+[Cómo contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md)
