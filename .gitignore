@@ -49,3 +49,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Postgres embebido de desarrollo (scripts/dev_api.py)
+.devdb/
