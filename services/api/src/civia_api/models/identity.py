@@ -106,7 +106,7 @@ class RefreshToken(UUIDPrimaryKey, Base):
 
 class TokenPurpose(enum.StrEnum):
     EMAIL_VERIFY = "email_verify"
-    PASSWORD_RESET = "password_reset"
+    PASSWORD_RESET = "password_reset"  # noqa: S105  (propósito del token, no un secreto)
 
 
 class UserToken(UUIDPrimaryKey, Base):

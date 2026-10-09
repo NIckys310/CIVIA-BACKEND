@@ -29,7 +29,9 @@ def current_step(now: float | None = None) -> int:
     return int((now if now is not None else time.time()) // STEP_SECONDS)
 
 
-def verify(secret: str, code: str, *, last_step: int | None, now: float | None = None) -> int | None:
+def verify(
+    secret: str, code: str, *, last_step: int | None, now: float | None = None
+) -> int | None:
     """Devuelve el paso aceptado o None. Nunca acepta un paso ≤ `last_step`."""
     code = code.strip().replace(" ", "")
     if len(code) != 6 or not code.isdigit():
