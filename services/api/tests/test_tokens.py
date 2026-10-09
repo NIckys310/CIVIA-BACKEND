@@ -45,3 +45,20 @@ def test_refresh_tokens_are_random_and_hashed() -> None:
     assert a != b
     assert len(a) >= 64
     assert a_hash == hash_refresh_token(a) != a
+
+
+def test_mfa_challenge_cannot_be_used_as_access_token() -> None:
+    from civia_api.security.tokens import create_mfa_challenge, decode_mfa_challenge
+
+    challenge = create_mfa_challenge(uuid.uuid4(), device_label="Web")
+    assert decode_mfa_challenge(challenge)["dev"] == "Web"
+    with pytest.raises(InvalidTokenError):
+        decode_access_token(challenge)
+
+
+def test_access_token_cannot_be_used_as_mfa_challenge() -> None:
+    from civia_api.security.tokens import decode_mfa_challenge
+
+    token, _ = create_access_token(uuid.uuid4(), session_id=uuid.uuid4())
+    with pytest.raises(InvalidTokenError):
+        decode_mfa_challenge(token)

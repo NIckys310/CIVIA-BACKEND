@@ -16,6 +16,9 @@ from civia_api.config import get_settings
 
 log = logging.getLogger(__name__)
 ALGORITHM = "EdDSA"
+TYP_ACCESS = "access"
+TYP_MFA_CHALLENGE = "mfa_challenge"
+MFA_CHALLENGE_TTL_SECONDS = 300
 
 
 class InvalidTokenError(Exception):
@@ -51,11 +54,12 @@ def create_access_token(user_id: uuid.UUID, *, session_id: uuid.UUID) -> tuple[s
         "nbf": now,
         "exp": now + timedelta(seconds=ttl),
         "jti": secrets.token_hex(8),
+        "typ": TYP_ACCESS,
     }
     return jwt.encode(claims, _keys()[0], algorithm=ALGORITHM), ttl
 
 
-def decode_access_token(token: str) -> dict[str, Any]:
+def _decode(token: str, *, typ: str, required: list[str]) -> dict[str, Any]:
     settings = get_settings()
     try:
         claims: dict[str, Any] = jwt.decode(
@@ -64,11 +68,40 @@ def decode_access_token(token: str) -> dict[str, Any]:
             algorithms=[ALGORITHM],  # lista fija: impide ataques de confusión de algoritmo
             audience=settings.jwt_audience,
             issuer=settings.jwt_issuer,
-            options={"require": ["exp", "iat", "sub", "sid", "aud", "iss"]},
+            options={"require": ["exp", "iat", "sub", "aud", "iss", "typ", *required]},
         )
     except jwt.PyJWTError as exc:
         raise InvalidTokenError(str(exc)) from exc
+    # Un token de un tipo nunca sirve para otro (p. ej. desafío MFA usado como acceso).
+    if claims.get("typ") != typ:
+        raise InvalidTokenError("Tipo de token incorrecto")
     return claims
+
+
+def decode_access_token(token: str) -> dict[str, Any]:
+    return _decode(token, typ=TYP_ACCESS, required=["sid"])
+
+
+def create_mfa_challenge(user_id: uuid.UUID, *, device_label: str | None) -> str:
+    """Token de corta vida que prueba que la contraseña ya fue verificada; solo canjeable
+    en /auth/mfa/verify junto con un código TOTP o de recuperación."""
+    settings = get_settings()
+    now = datetime.now(UTC)
+    claims: dict[str, Any] = {
+        "sub": str(user_id),
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": now,
+        "exp": now + timedelta(seconds=MFA_CHALLENGE_TTL_SECONDS),
+        "jti": secrets.token_hex(8),
+        "typ": TYP_MFA_CHALLENGE,
+        "dev": device_label,
+    }
+    return jwt.encode(claims, _keys()[0], algorithm=ALGORITHM)
+
+
+def decode_mfa_challenge(token: str) -> dict[str, Any]:
+    return _decode(token, typ=TYP_MFA_CHALLENGE, required=[])
 
 
 def new_refresh_token() -> tuple[str, str]:
