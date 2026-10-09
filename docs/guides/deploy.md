@@ -1,35 +1,34 @@
-# Despliegue público (gratis): Neon + Render + Vercel
+# Despliegue público (gratis): Render + Vercel
 
 ```
 Navegador ──https──► Vercel (CIVIA-FRONTEND, Next.js)
                         │  /api/v1/*  (mismo dominio: cookies SameSite=Strict, sin CORS)
                         ▼
-                     Render (CIVIA-BACKEND, Docker) ──► Neon (PostgreSQL 16)
+                     Render (CIVIA-BACKEND, Docker) ──► Render Postgres 16 (o Neon)
                         └──► Render Key Value (Redis: rate limiting)
 ```
 
 Planes gratuitos: el servicio web de Render **se duerme tras 15 min sin tráfico** y la primera
 petición tarda ~1 min en despertarlo. Para una demo es suficiente.
 
-## 1. Base de datos — Neon
+## 1. Base de datos
 
-1. Crea una cuenta en <https://neon.tech> y un proyecto: Postgres 16, región **AWS us-east-1**.
-2. En *Connection details* desactiva **Connection pooling** y copia la URL (la del rol
-   `neondb_owner`). Tiene la forma `postgresql://neondb_owner:…@ep-….us-east-1.aws.neon.tech/neondb?sslmode=require`.
-3. No la pegues en ningún archivo ni chat: solo en Render (paso 2).
+Por defecto `render.yaml` crea un **Render Postgres 16** y conecta la API a él: nadie copia ni
+pega la contraseña. Limitación: la base gratuita de Render **caduca a los 30 días**.
 
-> La API acepta la URL tal cual (convierte `sslmode` al formato de asyncpg). Las migraciones
-> crean el rol `civia_app` (sin privilegios, sujeto a RLS) y la API se conecta con él.
+**Base permanente (Neon, opcional):** crea un proyecto en <https://neon.tech> (Postgres 16,
+AWS us-east-1), copia la URL *sin pooling* del rol `neondb_owner` y, en Render →
+`civia-api` → *Environment*, reemplaza `MIGRATIONS_DATABASE_URL` por esa URL (y elimina la
+base `civia-db` del blueprint). La API acepta la URL tal cual (`sslmode` se convierte al
+formato de asyncpg).
 
 ## 2. API — Render
 
 1. Crea una cuenta en <https://render.com> entrando con GitHub y autoriza el repo `CIVIA-BACKEND`.
 2. **New → Blueprint** → elige `CIVIA-BACKEND` (rama `main`). Render lee `render.yaml`.
-3. Te pedirá dos valores:
-   - `MIGRATIONS_DATABASE_URL`: la URL de Neon del paso 1.
-   - `WEB_BASE_URL`: pon `https://example.com` por ahora; lo actualizas en el paso 4.
-4. **Apply**. Render genera `APP_DB_PASSWORD`, `JWT_SIGNING_SEED` y `DATA_ENCRYPTION_KEY`, crea
-   el Redis y despliega. En los logs verás `Base de datos lista` y luego Uvicorn.
+3. Te pedirá `WEB_BASE_URL`: pon `https://example.com` por ahora; lo actualizas en el paso 4.
+4. **Deploy Blueprint**. Render crea la base de datos y el Redis, genera `APP_DB_PASSWORD`,
+   `JWT_SIGNING_SEED` y `DATA_ENCRYPTION_KEY`, y despliega. En los logs verás `Base de datos lista` y luego Uvicorn.
 5. Comprueba `https://civia-api-XXXX.onrender.com/api/v1/health` → `{"status":"ok",…}`.
 
 ## 3. Web — Vercel
