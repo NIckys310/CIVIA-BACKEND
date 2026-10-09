@@ -42,8 +42,9 @@ def main() -> None:
         "CORS_ORIGINS", '["http://localhost:3000","http://localhost:8081","http://127.0.0.1:3000"]'
     )
     sys.path.insert(0, str(API_DIR / "src"))
-    print("Postgres embebido listo. API en http://127.0.0.1:8000/api/docs")
-    uvicorn.run("civia_api.main:app", host="127.0.0.1", port=8000, reload=False)
+    port = int(os.environ.get("CIVIA_API_PORT", "8000"))
+    print(f"Postgres embebido listo. API en http://localhost:{port}/api/docs")
+    uvicorn.run("civia_api.main:app", host="127.0.0.1", port=port, reload=False)
 
 
 if __name__ == "__main__":
