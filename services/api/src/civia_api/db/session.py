@@ -20,10 +20,27 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(get_engine(), expire_on_commit=False)
 
 
+class CommitOnError(Exception):  # noqa: N818  (no es un error de la BD, es una señal)
+    """Excepción de dominio cuyos efectos previos SÍ deben persistir.
+
+    Ejemplo: un login fallido se rechaza, pero su evento de auditoría y el contador de
+    intentos deben quedar guardados; un refresh reutilizado se rechaza, pero la
+    revocación de la familia de tokens debe confirmarse.
+    """
+
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Dependencia FastAPI: una transacción por petición (commit al final, rollback si falla)."""
-    async with get_sessionmaker()() as session, session.begin():
-        yield session
+    async with get_sessionmaker()() as session:
+        try:
+            yield session
+            await session.commit()
+        except CommitOnError:
+            await session.commit()
+            raise
+        except BaseException:
+            await session.rollback()
+            raise
 
 
 async def set_tenant_context(
