@@ -7,7 +7,9 @@ Los datos persisten en .devdb/ (ignorado por git). Con Docker instalado, prefier
 
 import os
 import secrets
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pgserver
@@ -21,9 +23,21 @@ DATA_DIR = ROOT / ".devdb"
 PASSWORD_FILE = DATA_DIR / "app_password.txt"
 
 
+def start_postgres() -> pgserver.PostgresServer:
+    """Arranca Postgres reintentando: tras un cierre abrupto la recuperación puede tardar
+    más que los 10 s que espera pgserver (en Windows el log queda bloqueado un rato)."""
+    for attempt in range(1, 7):
+        try:
+            return pgserver.get_server(DATA_DIR / "pg", cleanup_mode="stop")
+        except subprocess.TimeoutExpired:
+            print(f"Postgres sigue recuperándose (intento {attempt}/6); esperando…")
+            time.sleep(10)
+    raise SystemExit("Postgres no arrancó. Revisa .devdb/pg/log")
+
+
 def main() -> None:
     DATA_DIR.mkdir(exist_ok=True)
-    server = pgserver.get_server(DATA_DIR / "pg", cleanup_mode="stop")
+    server = start_postgres()
     admin_url = server.get_uri().replace("postgresql://", "postgresql+asyncpg://")
 
     cfg = Config(str(API_DIR / "alembic.ini"))
