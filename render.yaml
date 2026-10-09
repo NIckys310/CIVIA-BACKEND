@@ -1,0 +1,49 @@
+# Blueprint de Render: API de CIVIA (Docker) + Redis (Key Value).
+# Render → New → Blueprint → este repo. Pide solo MIGRATIONS_DATABASE_URL (Neon) y WEB_BASE_URL.
+# Los secretos con `generateValue` los genera Render (base64 de 256 bits): nunca están en el repo.
+services:
+  - type: web
+    name: civia-api
+    runtime: docker
+    plan: free
+    region: virginia # cerca de Colombia; usa la misma región (us-east-1) en Neon
+    branch: main
+    dockerfilePath: ./services/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # URL "direct" (sin -pooler) del rol propietario de Neon. Solo la usan las migraciones.
+      - key: MIGRATIONS_DATABASE_URL
+        sync: false
+      # La API se conecta como civia_app (sin privilegios, sujeto a RLS) con esta contraseña.
+      - key: APP_DB_PASSWORD
+        generateValue: true
+      - key: JWT_SIGNING_SEED
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: civia-redis
+          property: connectionString
+      # Solo el proxy de Render llega al contenedor; confía en su X-Forwarded-For.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      # URL pública de la web (Vercel), para los enlaces de los correos.
+      - key: WEB_BASE_URL
+        sync: false
+      # Demo sin servidor de correo: los correos se escriben en el log de Render.
+      # Cambia a EMAIL_BACKEND=smtp + SMTP_* antes de abrir el registro al público.
+      - key: ALLOW_CONSOLE_EMAIL
+        value: "true"
+
+  - type: keyvalue
+    name: civia-redis
+    plan: free
+    region: virginia
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # sin acceso desde internet: solo servicios de Render
