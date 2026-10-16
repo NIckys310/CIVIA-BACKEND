@@ -1,97 +1,45 @@
-# Arquitectura de CIVIA
-
-## Principio rector
+# Arquitectura de CIVIA AI
 
 ```
-IA → interpreta
-Motor de ingeniería → calcula (determinista, sin LLM)
-Normativa → establece criterios
-Ingeniero → valida
+Navegador (PWA)                      CIVIA-BACKEND (Spring Boot, Java 21)              Proveedores
+┌──────────────────────┐   HTTPS    ┌──────────────────────────────────────┐
+│ web/ (CIVIA-FRONTEND)│──────────▶│ /api/v1/auth    CIVIA Auth (JWT)      │
+│  · vistas en módulos │  mismo    │ /api/v1/projects, documents, budget…  │──▶ PostgreSQL / H2
+│  · Three.js (3D)     │  origen   │ /api/v1/ai      ┐                     │──▶ Disco (archivos)
+│  · cámara (WebRTC)   │◀──────────│ /api/v1/library ┘ civia-ai (CIVIA-IA) │──▶ Claude (opcional)
+│  · service worker    │           │ Sirve también la interfaz estática    │
+└──────────────────────┘           └──────────────────────────────────────┘
 ```
 
-Ningún cálculo crítico lo hace un LLM. La IA interpreta y redacta; `civia-engine` calcula;
-cada resultado guarda la normativa, la versión, las entradas y el usuario (trazabilidad).
-Toda salida lleva: *"Requiere revisión y aprobación del profesional responsable."*
+- **Un solo origen.** El backend sirve la interfaz (o `CIVIA-FRONTEND/server/CiviaWeb.java` actúa
+  de proxy). Así la cookie de sesión es `SameSite=Strict`, no hay CORS y la CSP es estricta
+  (`script-src 'self'`, sin scripts en línea).
+- **Capa de IA como librería.** `civia-ai` se compila en CIVIA-IA y se incluye en la API como
+  dependencia Maven: sin servicio extra ni latencia de red.
+- **Motor dual.** Con `ANTHROPIC_API_KEY`, Claude lee planos (PDF e imágenes) y conversa; sin ella
+  (o si falla), el motor local responde con la biblioteca y reglas deterministas.
 
-## Módulos
+## Módulos de la interfaz
 
-```mermaid
-flowchart LR
-  subgraph Clientes
-    WEB["apps/web<br/>Next.js 16 · PWA"]
-    MOB["apps/mobile<br/>Expo · Android/iOS"]
-  end
-  subgraph Compartido
-    UI["packages/ui<br/>tokens + iconos"]
-    TYPES["packages/shared-types<br/>generado de OpenAPI"]
-    CLIENT["packages/api-client<br/>cliente tipado"]
-  end
-  subgraph Backend
-    API["services/api<br/>FastAPI · /api/v1"]
-    WORKER["services/worker<br/>Arq: OCR, visión, informes (Fase 1)"]
-    AI["services/ai<br/>LLM + RAG con citas (Fase 1)"]
-    ENGINE["packages/engine<br/>civia-engine, determinista (Fase 2)"]
-  end
-  subgraph Datos
-    PG[("PostgreSQL 16<br/>pgvector · RLS")]
-    REDIS[("Redis<br/>colas · rate limit")]
-    S3[("S3 / MinIO<br/>planos")]
-  end
-  WEB --> CLIENT
-  MOB --> CLIENT
-  WEB --> UI
-  MOB --> UI
-  CLIENT --> TYPES
-  CLIENT -->|HTTPS + JWT| API
-  API --> PG
-  API --> REDIS
-  API --> S3
-  API --> WORKER
-  WORKER --> AI
-  WORKER --> ENGINE
-  AI -. solo interpreta resultados .-> ENGINE
-```
+| Ruta | Vista |
+|---|---|
+| `#/` | Panel: KPI, proyectos recientes, tareas, actividad, pregunta rápida |
+| `#/projects/:id/(overview·files·tasks·budget·spaces·team·log)` | Proyecto: revisión IA, archivos y versiones, kanban, presupuesto con AIU, programa, equipo, bitácora |
+| `#/viewer/:doc` · `#/massing/:project` | Visor 3D (GLB/glTF/OBJ/STL): medir, notas, sección, sol, análisis IA · volumetría con IA exportable a GLB |
+| `#/camera/:project` | Cámara: foto de obra, foto de plano (con análisis), medición con referencia |
+| `#/copilot/:conv` | Chat con contexto de proyecto y planos adjuntos |
+| `#/library/…` | Biblioteca: pregunta única, categorías, artículos, glosario, favoritos |
+| `#/profile` | Perfil, contraseña, verificación en dos pasos, sesiones, historial |
 
-| Componente | Estado | Notas |
-|---|---|---|
-| `services/api` | Fase 0 ✔ | Auth, RBAC, RLS, proyectos, actividad, auditoría |
-| `apps/web` | Fase 0 ✔ | Shell completo, login, dashboard, proyectos, perfil, PWA |
-| `apps/mobile` | Fase 0 ✔ | Login, biometría, pestañas, proyectos, perfil |
-| `packages/ui` | Fase 0 ✔ | Tokens con test de contraste WCAG AA e iconos propios |
-| `packages/api-client` / `shared-types` | Fase 0 ✔ | Contrato OpenAPI verificado en CI |
-| `services/worker`, `services/ai` | Fase 1 | Análisis de planos, OCR, RAG |
-| `packages/engine` | Fase 2 | Cálculo determinista con `pint`, pytest + hypothesis |
+## Rendimiento al entrar
 
-## Flujo de IA (diseño, Fase 1)
+- Sin framework ni paso de compilación: 3 módulos pequeños precargados (`modulepreload`), vistas y
+  Three.js cargados bajo demanda.
+- Service worker: la interfaz abre desde caché y se actualiza en segundo plano (nunca cachea `/api`).
+- Restauración de sesión en una sola petición, y solo si hubo sesión antes en ese navegador.
+- Compresión gzip/HTTP2, `Cache-Control` largo para librerías e imágenes y revalidación (304) para el código.
+- Medido en local: panel de proyecto completo (sesión + datos + recomendaciones IA) en ≈ 0,2 s.
 
-```mermaid
-sequenceDiagram
-  participant U as Ingeniero
-  participant API
-  participant W as Worker
-  participant V as Visión/OCR
-  participant E as civia-engine
-  participant L as LLM (Claude)
-  U->>API: Subir plano (PDF/DXF/imagen)
-  API->>API: Validar MIME + magic bytes, antivirus, renombrar
-  API->>W: Encolar análisis (analysis_run)
-  W->>V: Preprocesado → OCR → detección
-  V-->>W: Elementos + confianza + bbox
-  W->>E: Verificaciones deterministas
-  E-->>W: Resultados con norma/versión/sección
-  W->>L: Contexto mínimo (recortes, resultados) — el contenido del plano es DATO, no instrucción
-  L-->>W: Observaciones redactadas con citas
-  W-->>API: Hallazgos 🔴🟡🟢🔵 + trazabilidad
-  API-->>U: Progreso por etapas (SSE) y resultados
-```
+## Seguridad
 
-## Multi-tenant
-
-- Cada petición con datos de una organización envía `X-Organization-Id`.
-- La API **valida la membresía primero** (404 si no pertenece) y luego fija
-  `app.org_id` / `app.user_id` con `set_config(..., true)` para la transacción.
-- PostgreSQL aplica **Row-Level Security** con un rol `civia_app` sin superusuario:
-  aunque la aplicación olvidara un filtro, la base de datos no devuelve filas de otra
-  organización. Los tests lo comprueban contra Postgres real.
-
-Ver [ER](database/er.md), [modelo de amenazas](security/threat-model.md) y [ADRs](adr/).
+Ver [docs/security/threat-model.md](security/threat-model.md) (backend) y el README de CIVIA-BACKEND.

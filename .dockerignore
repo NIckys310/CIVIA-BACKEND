@@ -1,12 +1,6 @@
-**/node_modules
-**/.venv
-**/__pycache__
-**/.next
-**/.expo
-**/.turbo
-**/coverage
+target/
+data/
 .git
 .env
 .env.*
-apps
-docs
+*.log

@@ -1,5 +1,4 @@
-# CI del backend de CIVIA: lint → tipos → tests (Postgres real + RLS) → SAST/SCA → contrato → imagen.
-# Las acciones están fijadas por hash de commit (cadena de suministro); el comentario indica la versión.
+# CI de CIVIA-BACKEND: secretos → compila CIVIA-IA → pruebas de la API (Java 21).
 name: CI
 
 on:
@@ -27,40 +26,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   api:
-    name: API (Python)
+    name: API (Spring Boot, Java 21)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Instalar dependencias (lockfile congelado)
-        run: uv sync --frozen --python 3.12
-      - name: Ruff (lint + formato)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Instalar la capa de IA (CIVIA-IA, misma rama si existe; si no, main)
         run: |
-          uv run ruff check services/api scripts
-          uv run ruff format --check services/api scripts
-      - name: Mypy estricto
-        run: uv run mypy services/api/src
-      - name: Bandit (SAST)
-        run: uv run bandit -q -r services/api/src
-      - name: Semgrep (SAST)
-        run: uvx semgrep scan --config p/python --config p/owasp-top-ten --error services/api/src
-      - name: pip-audit (SCA)
-        run: uv export --frozen --no-dev --no-hashes --package civia-api --no-emit-workspace | uv run pip-audit --strict -r /dev/stdin
-      - name: Tests (Postgres 16 + pgvector embebido, RLS real)
-        working-directory: services/api
-        run: uv run pytest -q
-      - name: Contrato OpenAPI actualizado
-        run: |
-          uv run python scripts/export_openapi.py
-          git diff --exit-code services/api/openapi.json
-
-  container:
-    name: Imagen de la API (Trivy)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker build -f services/api/Dockerfile -t civia-api:ci .
-      - name: Escaneo de vulnerabilidades (falla con HIGH/CRITICAL)
-        run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 \
-            image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed civia-api:ci
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --depth 1 --branch "$BRANCH" https://github.com/NIckys310/CIVIA-IA.git ../CIVIA-IA \
+            || git clone --depth 1 https://github.com/NIckys310/CIVIA-IA.git ../CIVIA-IA
+          (cd ../CIVIA-IA && ./mvnw -B -q install -DskipTests)
+      - name: Pruebas (H2 en memoria, flujo completo de seguridad y API)
+        run: ./mvnw -B verify
