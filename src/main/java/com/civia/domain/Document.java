@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Archivo del proyecto: plano, modelo 3D, foto o documento. */
 @Entity
@@ -26,7 +24,7 @@ public class Document extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) private User uploadedBy;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String name;
+    @Column(columnDefinition = "text", nullable = false) private String name;
 
     @Enumerated(EnumType.STRING) @Column(nullable = false) private Enums.DocumentKind kind;
 
@@ -47,7 +45,7 @@ public class Document extends BaseEntity {
 
     private String discipline;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String description;
+    @Column(columnDefinition = "text") private String description;
 
     private int currentVersion = 1;
 }

@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Token de refresco rotativo (solo se guarda su SHA-256). */
 @Entity
@@ -35,7 +33,7 @@ public class RefreshToken extends BaseEntity {
 
     @Column(length = 64) private String replacedByHash;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String userAgent;
+    @Column(columnDefinition = "text") private String userAgent;
 
     private String ipAddress;
 }

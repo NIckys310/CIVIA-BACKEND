@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Artículo de la biblioteca creado por la organización. */
 @Entity
@@ -28,11 +26,11 @@ public class LibraryArticle extends BaseEntity {
 
     @Column(nullable = false) private String category;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String title;
+    @Column(columnDefinition = "text", nullable = false) private String title;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String summary;
+    @Column(columnDefinition = "text") private String summary;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String body;
+    @Column(columnDefinition = "text", nullable = false) private String body;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String tagsCsv;
+    @Column(columnDefinition = "text") private String tagsCsv;
 }

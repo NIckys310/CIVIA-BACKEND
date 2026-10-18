@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Historial de seguridad visible para el usuario. */
 @Entity
@@ -26,7 +24,7 @@ public class SecurityEvent extends BaseEntity {
 
     private String ipAddress;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String userAgent;
+    @Column(columnDefinition = "text") private String userAgent;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String detail;
+    @Column(columnDefinition = "text") private String detail;
 }

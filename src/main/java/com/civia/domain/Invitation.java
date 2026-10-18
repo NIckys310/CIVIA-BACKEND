@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Invitación a un proyecto. */
 @Entity
@@ -22,7 +20,7 @@ public class Invitation extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(nullable = false) private Project project;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String email;
+    @Column(columnDefinition = "text", nullable = false) private String email;
 
     @Enumerated(EnumType.STRING) private Enums.ProjectRole role = Enums.ProjectRole.VIEWER;
 

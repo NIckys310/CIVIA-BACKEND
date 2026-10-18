@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Análisis de IA de un plano, modelo o proyecto. */
 @Entity
@@ -28,12 +26,12 @@ public class AiAnalysis extends BaseEntity {
 
     private String engine;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String summary;
+    @Column(columnDefinition = "text") private String summary;
 
     private Integer completeness;
 
     /** Resultado completo (JSON) para volver a mostrarlo sin recalcular. */
-    @JdbcTypeCode(LONG32VARCHAR) private String resultJson;
+    @Column(columnDefinition = "text") private String resultJson;
 
     @ManyToOne(fetch = FetchType.LAZY) private User createdBy;
 }

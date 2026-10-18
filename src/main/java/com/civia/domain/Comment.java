@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Comentario sobre el proyecto o uno de sus elementos. */
 @Entity
@@ -28,5 +26,5 @@ public class Comment extends BaseEntity {
 
     private UUID targetId;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String body;
+    @Column(columnDefinition = "text", nullable = false) private String body;
 }

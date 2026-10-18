@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Capítulo del presupuesto. */
 @Entity
@@ -24,7 +22,7 @@ public class BudgetChapter extends BaseEntity {
 
     private String code;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String name;
+    @Column(columnDefinition = "text", nullable = false) private String name;
 
     private int sortOrder;
 }

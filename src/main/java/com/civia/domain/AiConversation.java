@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Conversación con CIVIA Copilot. */
 @Entity
@@ -24,5 +22,5 @@ public class AiConversation extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) private Project project;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String title;
+    @Column(columnDefinition = "text") private String title;
 }

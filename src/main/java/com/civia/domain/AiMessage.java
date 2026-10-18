@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Mensaje de una conversación. */
 @Entity
@@ -24,9 +22,9 @@ public class AiMessage extends BaseEntity {
 
     @Column(nullable = false) private String role;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String content;
+    @Column(columnDefinition = "text", nullable = false) private String content;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String sourcesJson;
+    @Column(columnDefinition = "text") private String sourcesJson;
 
     private String engine;
 }

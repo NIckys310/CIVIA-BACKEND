@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Medición estimada sobre una foto con referencia. */
 @Entity
@@ -26,7 +24,7 @@ public class Measurement extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) private User author;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String label;
+    @Column(columnDefinition = "text") private String label;
 
     @Column(name = "measured_value") private double value;
 
@@ -35,5 +33,5 @@ public class Measurement extends BaseEntity {
     private Double referenceLength;
 
     /** Puntos marcados sobre la imagen (JSON). */
-    @JdbcTypeCode(LONG32VARCHAR) private String pointsJson;
+    @Column(columnDefinition = "text") private String pointsJson;
 }

@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Datos de una foto tomada con la cámara de CIVIA. */
 @Entity
@@ -29,7 +27,7 @@ public class PhotoMetadata extends BaseEntity {
 
     private Instant takenAt;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String deviceInfo;
+    @Column(columnDefinition = "text") private String deviceInfo;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String note;
+    @Column(columnDefinition = "text") private String note;
 }

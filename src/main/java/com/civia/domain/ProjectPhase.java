@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Fase del proyecto (concepto, anteproyecto, licencia, obra…). */
 @Entity
@@ -22,7 +20,7 @@ public class ProjectPhase extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(nullable = false) private Project project;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String name;
+    @Column(columnDefinition = "text", nullable = false) private String name;
 
     private int sortOrder;
 

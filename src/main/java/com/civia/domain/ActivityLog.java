@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Bitácora de actividad del proyecto. */
 @Entity
@@ -30,5 +28,5 @@ public class ActivityLog extends BaseEntity {
 
     private UUID entityId;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String detail;
+    @Column(columnDefinition = "text") private String detail;
 }

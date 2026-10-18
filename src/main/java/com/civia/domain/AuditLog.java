@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Auditoría append-only encadenada con SHA-256. */
 @Entity
@@ -26,7 +24,7 @@ public class AuditLog extends BaseEntity {
 
     private String ipAddress;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String detail;
+    @Column(columnDefinition = "text") private String detail;
 
     /** Cadena de hashes: alterar un registro rompe todos los siguientes. */
     @Column(length = 64) private String prevHash;

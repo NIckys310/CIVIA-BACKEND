@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Proyecto arquitectónico. */
 @Entity
@@ -28,19 +26,19 @@ public class Project extends BaseEntity {
 
     private String code;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String name;
+    @Column(columnDefinition = "text", nullable = false) private String name;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String description;
+    @Column(columnDefinition = "text") private String description;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String type;
+    @Column(columnDefinition = "text") private String type;
 
     @Enumerated(EnumType.STRING) private Enums.ProjectStatus status = Enums.ProjectStatus.DESIGN;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String phase;
+    @Column(columnDefinition = "text") private String phase;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String location;
+    @Column(columnDefinition = "text") private String location;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String address;
+    @Column(columnDefinition = "text") private String address;
 
     private Double latitude;
 

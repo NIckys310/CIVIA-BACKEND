@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Nota anclada a un punto de un modelo 3D. */
 @Entity
@@ -30,7 +28,7 @@ public class ModelAnnotation extends BaseEntity {
 
     private double z;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String text;
+    @Column(columnDefinition = "text", nullable = false) private String text;
 
     private boolean resolved;
 }

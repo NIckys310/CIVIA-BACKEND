@@ -1,6 +1,5 @@
 package com.civia.domain;
 
-import static org.hibernate.type.SqlTypes.LONG32VARCHAR;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,7 +9,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 
 /** Usuario. La contraseña solo existe como hash Argon2id. */
 @Entity
@@ -21,16 +19,16 @@ import org.hibernate.annotations.JdbcTypeCode;
 public class User extends BaseEntity {
 
     /** Correo normalizado (minúsculas). */
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false, unique = true) private String email;
+    @Column(columnDefinition = "text", nullable = false, unique = true) private String email;
 
     /** Hash Argon2id; nunca la contraseña. */
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String passwordHash;
+    @Column(columnDefinition = "text", nullable = false) private String passwordHash;
 
-    @JdbcTypeCode(LONG32VARCHAR) @Column(nullable = false) private String fullName;
+    @Column(columnDefinition = "text", nullable = false) private String fullName;
 
-    @Convert(converter = com.civia.security.EncryptedStringConverter.class) @JdbcTypeCode(LONG32VARCHAR) private String phone;
+    @Convert(converter = com.civia.security.EncryptedStringConverter.class) @Column(columnDefinition = "text") private String phone;
 
-    @JdbcTypeCode(LONG32VARCHAR) private String profession;
+    @Column(columnDefinition = "text") private String profession;
 
     private String avatarColor;
 
@@ -51,7 +49,7 @@ public class User extends BaseEntity {
     private boolean mfaEnabled;
 
     /** Semilla TOTP cifrada con AES-256-GCM. */
-    @Convert(converter = com.civia.security.EncryptedStringConverter.class) @JdbcTypeCode(LONG32VARCHAR) private String mfaSecret;
+    @Convert(converter = com.civia.security.EncryptedStringConverter.class) @Column(columnDefinition = "text") private String mfaSecret;
 
     @ManyToOne(fetch = FetchType.EAGER) private Organization organization;
 }
