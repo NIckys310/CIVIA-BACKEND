@@ -1,9 +1,15 @@
-# Despliegue en Render: API + interfaz en un solo servicio Docker.
-# PostgreSQL: crea una base (Render o Neon) y define DATABASE_URL en formato JDBC
-# (jdbc:postgresql://host:5432/civia?sslmode=require).
+# Despliegue en Render: API + interfaz en un servicio Docker y PostgreSQL administrado.
+# Render crea la base y genera las claves; no hay que copiar credenciales a mano.
+# La interfaz pública vive en Vercel (civia-black.vercel.app) y reenvía /api a este servicio.
+databases:
+  - name: civia-db
+    plan: free
+    databaseName: civia
+    user: civia
+
 services:
   - type: web
-    name: civia
+    name: civia-api
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -12,19 +18,18 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_USERNAME
-        sync: false
-      - key: DATABASE_PASSWORD
-        sync: false
+        fromDatabase:
+          name: civia-db
+          property: connectionString
+      # 256 bits aleatorios en Base64, generados por Render. No cambiarlos después:
+      # cerrarían las sesiones y los datos cifrados dejarían de leerse.
       - key: CIVIA_JWT_SECRET
-        sync: false
+        generateValue: true
       - key: CIVIA_DATA_KEY
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      # La interfaz pública vive en Vercel y reenvía /api a este servicio (mismo origen para el navegador).
+        generateValue: true
       - key: CIVIA_PUBLIC_URL
         value: https://civia-black.vercel.app
       - key: CIVIA_CORS_ORIGINS
         value: https://civia-black.vercel.app
+      - key: ANTHROPIC_API_KEY
+        sync: false
