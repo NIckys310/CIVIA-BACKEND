@@ -23,3 +23,8 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # La interfaz pública vive en Vercel y reenvía /api a este servicio (mismo origen para el navegador).
+      - key: CIVIA_PUBLIC_URL
+        value: https://civia-black.vercel.app
+      - key: CIVIA_CORS_ORIGINS
+        value: https://civia-black.vercel.app
