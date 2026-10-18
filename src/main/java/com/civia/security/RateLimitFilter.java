@@ -15,12 +15,17 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final int AUTH_PER_MINUTE = 20;
-    private static final int API_PER_MINUTE = 900;
+    private final int authPerMinute;
+    private final int apiPerMinute;
 
     private record Window(long minute, int count) {}
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
+
+    public RateLimitFilter(int authPerMinute, int apiPerMinute) {
+        this.authPerMinute = authPerMinute;
+        this.apiPerMinute = apiPerMinute;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -33,7 +38,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = req.getRequestURI();
         boolean auth = path.startsWith("/api/v1/auth/") && "POST".equals(req.getMethod());
         String key = (auth ? "auth:" : "api:") + req.getRemoteAddr();
-        int limit = auth ? AUTH_PER_MINUTE : API_PER_MINUTE;
+        int limit = auth ? authPerMinute : apiPerMinute;
         long minute = System.currentTimeMillis() / 60_000;
         Window w = windows.compute(key, (k, old) -> old == null || old.minute() != minute
                 ? new Window(minute, 1) : new Window(minute, old.count() + 1));

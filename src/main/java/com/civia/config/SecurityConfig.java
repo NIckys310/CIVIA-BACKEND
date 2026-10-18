@@ -49,7 +49,9 @@ public class SecurityConfig {
             "frame-ancestors 'none'");
 
     @Bean
-    SecurityFilterChain api(HttpSecurity http, @Value("${civia.security.cors-origins}") String origins) throws Exception {
+    SecurityFilterChain api(HttpSecurity http, @Value("${civia.security.cors-origins}") String origins,
+                            @Value("${civia.security.auth-requests-per-minute:20}") int authPerMinute,
+                            @Value("${civia.security.api-requests-per-minute:900}") int apiPerMinute) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // Bearer en cabecera; el refresh usa cookie SameSite=Strict.
                 .cors(c -> c.configurationSource(cors(origins)))
@@ -57,13 +59,14 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(a -> a
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/password/check").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/password/check",
+                                "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/password-policy", "/api/v1/status").permitAll()
                         .requestMatchers("/api/v1/openapi.json", "/api/v1/openapi.json/**", "/api/docs", "/api/docs/**", "/api/swagger-ui/**", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(o -> o.jwt(j -> {}))
-                .addFilterBefore(new RateLimitFilter(), BearerTokenAuthenticationFilter.class)
+                .addFilterBefore(new RateLimitFilter(authPerMinute, apiPerMinute), BearerTokenAuthenticationFilter.class)
                 .headers(h -> h
                         .contentSecurityPolicy(c -> c.policyDirectives(CSP))
                         .frameOptions(f -> f.deny())

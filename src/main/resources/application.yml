@@ -78,6 +78,17 @@ civia:
     cors-origins: ${CIVIA_CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
     max-failed-logins: 5
     lockout-minutes: 15
+    hibp:
+      # Contraseñas filtradas (Have I Been Pwned, k-anonymity). Si no responde, se acepta la contraseña.
+      enabled: ${CIVIA_HIBP_ENABLED:true}
+      timeout-ms: ${CIVIA_HIBP_TIMEOUT_MS:3000}
+  mail:
+    # log (desarrollo: el correo se escribe en el log) o smtp (requiere SPRING_MAIL_HOST y demás spring.mail.*).
+    mode: ${CIVIA_MAIL_MODE:log}
+    from: ${CIVIA_MAIL_FROM:CIVIA AI <no-reply@civia.local>}
+    # URL pública de la interfaz para los enlaces de los correos (nunca se toma de la cabecera Host).
+    public-url: ${CIVIA_PUBLIC_URL:http://localhost:8080}
+    log-links: true
   ai:
     anthropic-api-key: ${ANTHROPIC_API_KEY:}
     model: ${CIVIA_AI_MODEL:claude-opus-5-5}
@@ -95,3 +106,7 @@ spring:
   datasource:
     url: ${DATABASE_URL}
     driver-class-name: org.postgresql.Driver
+civia:
+  mail:
+    # En producción el modo log nunca escribe enlaces de recuperación (darían acceso a la cuenta).
+    log-links: false

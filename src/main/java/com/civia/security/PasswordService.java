@@ -31,9 +31,11 @@ public class PasswordService {
     /** Argon2id: 16 B de sal, 32 B de hash, 1 hilo, 19 MiB, 2 iteraciones (perfil OWASP). */
     private final Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19 * 1024, 2);
     private final PasswordHistoryRepository history;
+    private final PwnedPasswords pwned;
 
-    public PasswordService(PasswordHistoryRepository history) {
+    public PasswordService(PasswordHistoryRepository history, PwnedPasswords pwned) {
         this.history = history;
+        this.pwned = pwned;
     }
 
     public String hash(String raw) {
@@ -44,7 +46,10 @@ public class PasswordService {
         return raw != null && hash != null && encoder.matches(raw, hash);
     }
 
-    /** Valida la política; devuelve los problemas encontrados (vacío = válida). */
+    /**
+     * Valida la política; devuelve los problemas encontrados (vacío = válida). Si pasa las reglas
+     * locales, se consulta Have I Been Pwned (k-anonymity, fail-open).
+     */
     public List<String> problems(String raw, String email, String fullName) {
         List<String> out = new ArrayList<>();
         if (raw == null || raw.codePointCount(0, raw.length()) < MIN_LENGTH) {
@@ -61,6 +66,9 @@ public class PasswordService {
         boolean others = raw.codePoints().anyMatch(c -> !Character.isLetter(c));
         if (raw.length() < 12 && !(letters && others)) {
             out.add("Combina letras con números o símbolos (o usa una frase de 12+ caracteres).");
+        }
+        if (out.isEmpty() && pwned.breachCount(raw) > 0) {
+            out.add("Esta contraseña aparece en filtraciones de datos conocidas (Have I Been Pwned); elige otra.");
         }
         return out;
     }

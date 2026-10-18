@@ -41,6 +41,10 @@ public final class Dto {
 
     public record ChangePasswordRequest(String currentPassword, String newPassword) {}
 
+    public record ForgotPasswordRequest(String email) {}
+
+    public record ResetPasswordRequest(String token, String password) {}
+
     public record SessionDto(UUID id, String userAgent, String ipAddress, Instant createdAt, Instant lastUsedAt, Instant expiresAt) {}
 
     public record SecurityEventDto(String type, String detail, String ipAddress, String userAgent, Instant createdAt) {}

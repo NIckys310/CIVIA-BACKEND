@@ -11,6 +11,7 @@ import com.civia.security.PasswordService;
 import com.civia.security.TokenService;
 import com.civia.service.AuditService;
 import com.civia.service.AuthService;
+import com.civia.service.PasswordResetService;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
  *   <li>{@code POST /api/v1/auth/token} con {@code grant_type=password} o {@code refresh_token}.</li>
  *   <li>{@code POST /api/v1/auth/revoke} cierra la sesión del dispositivo.</li>
  *   <li>{@code GET/PATCH /api/v1/auth/user} es la cuenta autenticada.</li>
+ *   <li>{@code POST /api/v1/auth/password/forgot} y {@code /password/reset} recuperan la cuenta por correo.</li>
  * </ul>
  */
 @RestController
@@ -53,11 +55,12 @@ public class AuthController {
     private final UserPreferenceRepository preferences;
     private final SecurityEventRepository securityEvents;
     private final AuditService audit;
+    private final PasswordResetService resets;
     private final boolean secureCookies;
 
     public AuthController(AuthService auth, TokenService tokens, PasswordService passwords, ProjectAccess access,
                           UserProfileRepository profiles, UserPreferenceRepository preferences,
-                          SecurityEventRepository securityEvents, AuditService audit,
+                          SecurityEventRepository securityEvents, AuditService audit, PasswordResetService resets,
                           @Value("${civia.security.secure-cookies:true}") boolean secureCookies) {
         this.auth = auth;
         this.tokens = tokens;
@@ -67,6 +70,7 @@ public class AuthController {
         this.preferences = preferences;
         this.securityEvents = securityEvents;
         this.audit = audit;
+        this.resets = resets;
         this.secureCookies = secureCookies;
     }
 
@@ -161,6 +165,22 @@ public class AuthController {
         User u = access.me();
         TokenService.Issued issued = auth.changePassword(u, req.currentPassword(), req.newPassword(), agent(http), http.getRemoteAddr());
         return respond(u, issued, res);
+    }
+
+    /** Siempre la misma respuesta (202), exista o no la cuenta. */
+    @PostMapping("/password/forgot")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public Map<String, Object> forgotPassword(@RequestBody ForgotPasswordRequest req, HttpServletRequest http) {
+        resets.requestReset(req.email(), http.getRemoteAddr(), agent(http));
+        return Map.of("message", "Si existe una cuenta con ese correo, te enviamos un enlace para restablecer la contraseña. Revisa tu bandeja de entrada.");
+    }
+
+    @PostMapping("/password/reset")
+    public Map<String, Object> resetPassword(@RequestBody ResetPasswordRequest req, HttpServletRequest http, HttpServletResponse res) {
+        resets.reset(req.token(), req.password(), http.getRemoteAddr(), agent(http));
+        clearCookie(res);
+        res.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        return Map.of("reset", true, "message", "Contraseña actualizada. Inicia sesión con la nueva.");
     }
 
     @PostMapping("/password/check")
