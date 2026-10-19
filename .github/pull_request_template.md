@@ -3,8 +3,8 @@
 ## Cómo probarlo
 
 ## Checklist
-- [ ] Tests en verde (`pytest`, `turbo run typecheck test`)
-- [ ] Contrato OpenAPI regenerado si cambió la API
+- [ ] Tests en verde (`./mvnw verify`)
+- [ ] Contrato OpenAPI revisado si cambió la API (`/api/v1/openapi.json`)
 - [ ] Sin secretos, `.env` ni datos de clientes en el diff
 - [ ] Autorización revisada: ¿un usuario de otra organización puede acceder a esto?
 - [ ] Textos de la interfaz en lenguaje prudente ("posible inconsistencia", nunca "es seguro/inseguro")
