@@ -1,6 +1,7 @@
 # 0009 · Migración a Java 21 (Spring Boot) y web sin framework
 
-- **Estado:** aceptada (reemplaza 0001, 0002, 0003, 0006 y 0007)
+- **Estado:** aceptada (reemplaza 0001, 0002, 0003, 0006 y 0007, que describían el stack anterior en
+  Python/TypeScript; se retiraron del repositorio y siguen disponibles en el historial de git)
 - **Fecha:** 2026-10-16
 
 ## Contexto
