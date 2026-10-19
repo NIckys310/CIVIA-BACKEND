@@ -1,0 +1,112 @@
+spring:
+  application:
+    name: civia-backend
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # Desarrollo: H2 en archivo, sin instalar nada. Producción: perfil "prod" (PostgreSQL).
+    url: ${DATABASE_URL:jdbc:h2:file:./data/db/civia;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE}
+    username: ${DATABASE_USERNAME:civia}
+    password: ${DATABASE_PASSWORD:civia}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+  servlet:
+    multipart:
+      # Planos y modelos 3D pueden ser grandes; el límite se ajusta con CIVIA_MAX_UPLOAD.
+      max-file-size: ${CIVIA_MAX_UPLOAD:2GB}
+      max-request-size: ${CIVIA_MAX_UPLOAD:2GB}
+      file-size-threshold: 2MB
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=2000,expireAfterWrite=10m
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,text/javascript,application/json,image/svg+xml,model/gltf+json,application/octet-stream
+    min-response-size: 1024
+  http2:
+    enabled: true
+  forward-headers-strategy: framework
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+  tomcat:
+    # Sin límite artificial para textos largos (descripciones, notas, contraseñas).
+    max-http-form-post-size: -1
+    max-swallow-size: -1
+  error:
+    include-message: always
+    include-stacktrace: never
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi.json
+  swagger-ui:
+    path: /api/docs
+
+civia:
+  web:
+    # Carpeta de la interfaz (repositorio CIVIA-FRONTEND clonado al lado de este).
+    dir: ${CIVIA_WEB_DIR:../CIVIA-FRONTEND/web}
+  storage:
+    dir: ${CIVIA_STORAGE_DIR:./data/uploads}
+  security:
+    jwt-secret: ${CIVIA_JWT_SECRET:}
+    data-key: ${CIVIA_DATA_KEY:}
+    keys-dir: ${CIVIA_KEYS_DIR:./data/keys}
+    access-token-minutes: ${CIVIA_ACCESS_TOKEN_MINUTES:15}
+    refresh-token-days: ${CIVIA_REFRESH_TOKEN_DAYS:30}
+    secure-cookies: ${CIVIA_SECURE_COOKIES:true}
+    cors-origins: ${CIVIA_CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    max-failed-logins: 5
+    lockout-minutes: 15
+    hibp:
+      # Contraseñas filtradas (Have I Been Pwned, k-anonymity). Si no responde, se acepta la contraseña.
+      enabled: ${CIVIA_HIBP_ENABLED:true}
+      timeout-ms: ${CIVIA_HIBP_TIMEOUT_MS:3000}
+  mail:
+    # log (desarrollo: el correo se escribe en el log) o smtp (requiere SPRING_MAIL_HOST y demás spring.mail.*).
+    mode: ${CIVIA_MAIL_MODE:log}
+    from: ${CIVIA_MAIL_FROM:CIVIA AI <no-reply@civia.local>}
+    # URL pública de la interfaz para los enlaces de los correos (nunca se toma de la cabecera Host).
+    public-url: ${CIVIA_PUBLIC_URL:http://localhost:8080}
+    log-links: true
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: ${CIVIA_AI_MODEL:claude-opus-5-5}
+
+logging:
+  level:
+    org.hibernate.orm.deprecation: error
+    org.springframework.security: warn
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+civia:
+  mail:
+    # En producción el modo log nunca escribe enlaces de recuperación (darían acceso a la cuenta).
+    log-links: false

@@ -1,116 +1,68 @@
-# Modelo de datos
+# Modelo de datos (41 tablas)
 
-Convenciones: PK UUID v7 (ordenable por tiempo), `created_at` / `updated_at`,
-`deleted_at` (borrado lógico) en entidades de negocio, FK explícitas, nombres de
-restricciones deterministas, RLS en tablas de tenant.
+Todas las tablas usan identificador UUID (no enumerable), `created_at` y `updated_at`. Los textos
+escritos por usuarios no tienen límite de longitud (`text` en PostgreSQL). Las columnas marcadas
+con 🔒 se cifran en reposo con AES-256-GCM.
 
-## Fase 0 (implementado)
+## Identidad y seguridad (CIVIA Auth)
 
-```mermaid
-erDiagram
-  organizations ||--o{ memberships : tiene
-  users ||--o{ memberships : pertenece
-  organizations ||--o{ projects : agrupa
-  projects ||--o{ project_members : asigna
-  users ||--o{ project_members : participa
-  users ||--o{ refresh_tokens : "sesiones"
-  users ||--o{ projects : "created_by"
-
-  organizations {
-    uuid id PK
-    string name
-    string slug UK
-    string country_code "CO"
-    string default_norm_code "NSR-10"
-  }
-  users {
-    uuid id PK
-    string email UK "normalizado a minúsculas"
-    string password_hash "Argon2id"
-    string full_name
-    string locale "es-CO"
-    bool is_active
-    timestamptz email_verified_at
-  }
-  memberships {
-    uuid id PK
-    uuid organization_id FK "RLS"
-    uuid user_id FK
-    enum role "admin|engineer_in_charge|reviewer|collaborator|viewer"
-  }
-  projects {
-    uuid id PK
-    uuid organization_id FK "RLS"
-    string code "PRJ-0001, único por org"
-    string name
-    string norm_code "trazabilidad"
-    string norm_version
-    uuid created_by FK
-  }
-  project_members {
-    uuid id PK
-    uuid organization_id FK "RLS"
-    uuid project_id FK
-    uuid user_id FK
-    enum role
-  }
-  refresh_tokens {
-    uuid id PK
-    uuid user_id FK
-    uuid family_id "una sesión/dispositivo"
-    string token_hash UK "SHA-256, nunca el token"
-    timestamptz expires_at
-    timestamptz rotated_at
-    timestamptz revoked_at
-    string device_label
-  }
-  audit_log {
-    bigint seq PK "asignado bajo advisory lock"
-    timestamptz occurred_at
-    uuid organization_id "RLS lectura"
-    uuid actor_user_id
-    string action
-    jsonb details "sin secretos"
-    string prev_hash
-    string hash "SHA-256 encadenado"
-  }
-```
-
-### Índices justificados
-
-| Índice | Motivo |
+| Tabla | Contenido |
 |---|---|
-| `uq_users_email` | Login por correo |
-| `ix_*_organization_id` | Filtro de RLS en todas las consultas de tenant |
-| `uq_projects_organization_id (org, code)` | Código de proyecto único por organización |
-| `ix_refresh_tokens_user_family` | Revocar una sesión / listar dispositivos |
-| `uq_refresh_tokens_token_hash` | Canje de refresh token en O(log n) |
-| `ix_audit_log_organization_id` | Feed de actividad por organización |
+| `organizations` | Estudio o empresa |
+| `users` | Correo, hash **Argon2id**, rol, estado, bloqueo, MFA (semilla 🔒), teléfono 🔒 |
+| `user_profiles` | Biografía, empresa, matrícula profesional 🔒, ciudad, país, web |
+| `user_preferences` | Tema, idioma, unidades, notificaciones |
+| `memberships` | Usuario ↔ organización |
+| `refresh_tokens` | SHA-256 del token, familia de rotación, dispositivo, IP, expiración, revocación |
+| `login_attempts` | Intentos de inicio de sesión (bloqueo y auditoría) |
+| `security_events` | Historial de seguridad visible para el usuario |
+| `password_history` | Últimos hashes para impedir reutilización |
+| `mfa_recovery_codes` | Códigos de recuperación (SHA-256) |
+| `audit_log` | Auditoría append-only encadenada con SHA-256 |
 
-### Garantías en base de datos
+## Proyectos
 
-- `audit_log`: UPDATE/DELETE/TRUNCATE bloqueados por trigger; `civia_app` solo puede
-  leer (bajo RLS) y escribir mediante `audit_write()` (SECURITY DEFINER).
-  `audit_log_verify()` detecta filas alteradas por cualquier vía.
-- RLS `FORCE` en `projects`, `project_members`, `memberships`, `organizations`.
+| Tabla | Contenido |
+|---|---|
+| `clients` | Clientes (correo 🔒, teléfono 🔒) |
+| `projects` | Datos del proyecto, áreas, pisos, presupuesto estimado, fechas |
+| `project_members` | Rol por proyecto: OWNER, EDITOR, VIEWER |
+| `project_phases` | Concepto → Entrega |
+| `tasks` | Kanban: estado, prioridad, responsable, fase, vencimiento |
+| `comments` | Comentarios del proyecto o de un archivo |
+| `tags`, `project_tags` | Etiquetas |
+| `levels`, `rooms` | Niveles y programa arquitectónico |
+| `invitations` | Invitaciones a proyectos |
+| `activity_log` | Bitácora del proyecto |
+| `notifications` | Notificaciones por usuario |
 
-## Fases siguientes (diseño)
+## Archivos, cámara y 3D
 
-`files`, `file_versions`, `plans`, `plan_pages`, `detected_elements`, `element_properties`,
-`inconsistencies`, `analysis_runs`, `calculations`, `calculation_inputs`, `calculation_results`,
-`load_cases`, `load_combinations`, `materials`, `norms`, `norm_versions`, `norm_sections`,
-`knowledge_documents`, `knowledge_chunks (embedding vector)`, `chat_sessions`, `chat_messages`,
-`measurements`, `evidence_photos`, `observations`, `reports`, `model_3d`.
+| Tabla | Contenido |
+|---|---|
+| `folders` | Carpetas |
+| `documents` | Planos, modelos 3D, fotos y documentos (nombre aleatorio en disco, SHA-256, tipo verificado) |
+| `document_versions` | Historial de versiones |
+| `photo_metadata` | Ubicación, fecha y dispositivo de fotos de la cámara |
+| `measurements` | Mediciones con referencia sobre fotos |
+| `model_annotations` | Notas ancladas a puntos de modelos 3D |
 
-Todas las tablas de negocio llevarán `organization_id` + RLS. `analysis_runs` guarda versión
-de norma, entradas, versión del plano, método y usuario (trazabilidad obligatoria).
-Los roles se modelan como enum en Fase 0 (ADR 0005); una tabla `roles` con permisos
-configurables se evaluará cuando haya roles personalizados por organización.
+## Inteligencia artificial y biblioteca
 
-## Migraciones y backups
+| Tabla | Contenido |
+|---|---|
+| `ai_analyses` | Análisis de planos, modelos y proyectos (resultado completo en JSON) |
+| `ai_findings` | Hallazgos por verificación (OK / FALTA / REVISAR) y su resolución |
+| `ai_conversations`, `ai_messages` | Conversaciones de Copilot con fuentes citadas |
+| `library_articles` | Artículos aportados por el estudio (se suman a la búsqueda) |
+| `library_favorites`, `library_search_log` | Favoritos y búsquedas |
 
-- Alembic (`services/api/alembic`), ejecutadas con el rol propietario
-  (`MIGRATIONS_DATABASE_URL`); la API nunca usa ese rol.
-- Cada migración tiene `downgrade`. Se prueban en CI aplicándolas a una BD vacía.
-- Backups cifrados diarios + WAL continuo; prueba de restauración mensual
-  (RPO 15 min / RTO 4 h como objetivo inicial; ver guía de despliegue).
+## Presupuesto
+
+| Tabla | Contenido |
+|---|---|
+| `budget_chapters`, `budget_items` | Capítulos e ítems (cantidad × valor unitario) |
+| `budget_settings` | AIU: administración, imprevistos, utilidad, IVA sobre utilidad |
+| `materials`, `suppliers` | Catálogo de materiales y proveedores (contacto 🔒) |
+
+El esquema lo crea y actualiza Hibernate al arrancar (`ddl-auto=update`).
