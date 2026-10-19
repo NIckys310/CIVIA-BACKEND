@@ -1,49 +1,35 @@
-# Blueprint de Render: API de CIVIA (Docker) + Redis (Key Value).
-# Render → New → Blueprint → este repo. Pide solo MIGRATIONS_DATABASE_URL (Neon) y WEB_BASE_URL.
-# Los secretos con `generateValue` los genera Render (base64 de 256 bits): nunca están en el repo.
+# Despliegue en Render: API + interfaz en un servicio Docker y PostgreSQL administrado.
+# Render crea la base y genera las claves; no hay que copiar credenciales a mano.
+# La interfaz pública vive en Vercel (civia-black.vercel.app) y reenvía /api a este servicio.
+databases:
+  - name: civia-db
+    plan: free
+    databaseName: civia
+    user: civia
+
 services:
   - type: web
     name: civia-api
     runtime: docker
     plan: free
-    region: virginia # cerca de Colombia; usa la misma región (us-east-1) en Neon
-    branch: main
-    dockerfilePath: ./services/api/Dockerfile
-    dockerContext: .
-    healthCheckPath: /api/v1/health
-    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/status
     envVars:
-      - key: ENVIRONMENT
-        value: production
-      # URL "direct" (sin -pooler) del rol propietario de Neon. Solo la usan las migraciones.
-      - key: MIGRATIONS_DATABASE_URL
-        sync: false
-      # La API se conecta como civia_app (sin privilegios, sujeto a RLS) con esta contraseña.
-      - key: APP_DB_PASSWORD
-        generateValue: true
-      - key: JWT_SIGNING_SEED
-        generateValue: true
-      - key: DATA_ENCRYPTION_KEY
-        generateValue: true
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: civia-redis
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: civia-db
           property: connectionString
-      # Solo el proxy de Render llega al contenedor; confía en su X-Forwarded-For.
-      - key: FORWARDED_ALLOW_IPS
-        value: "*"
-      # URL pública de la web (Vercel), para los enlaces de los correos.
-      - key: WEB_BASE_URL
+      # 256 bits aleatorios en Base64, generados por Render. No cambiarlos después:
+      # cerrarían las sesiones y los datos cifrados dejarían de leerse.
+      - key: CIVIA_JWT_SECRET
+        generateValue: true
+      - key: CIVIA_DATA_KEY
+        generateValue: true
+      - key: CIVIA_PUBLIC_URL
+        value: https://civia-black.vercel.app
+      - key: CIVIA_CORS_ORIGINS
+        value: https://civia-black.vercel.app
+      - key: ANTHROPIC_API_KEY
         sync: false
-      # Demo sin servidor de correo: los correos se escriben en el log de Render.
-      # Cambia a EMAIL_BACKEND=smtp + SMTP_* antes de abrir el registro al público.
-      - key: ALLOW_CONSOLE_EMAIL
-        value: "true"
-
-  - type: keyvalue
-    name: civia-redis
-    plan: free
-    region: virginia
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: [] # sin acceso desde internet: solo servicios de Render

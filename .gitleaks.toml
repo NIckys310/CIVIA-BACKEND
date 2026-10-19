@@ -6,6 +6,5 @@ useDefault = true
 description = "Valores de ejemplo y datos ficticios de pruebas"
 paths = [
   '''\.env\.example$''',
-  '''services/api/tests/.*''',
-  '''packages/api-client/test/.*''',
+  '''src/test/java/.*''',
 ]

@@ -1,60 +1,25 @@
-# Dependencies
-node_modules/
-.venv/
-__pycache__/
-*.py[cod]
+# Compilación
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
 
-# Builds
-.next/
-out/
-dist/
-build/
-.turbo/
-.expo/
-*.tsbuildinfo
-coverage/
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Datos locales de desarrollo (base H2, archivos subidos y claves generadas)
+data/
 
-# Mobile native outputs
-apps/mobile/android/
-apps/mobile/ios/
-*.apk
-*.aab
-*.ipa
-*.jks
-*.keystore
-*.p8
-*.p12
-*.mobileprovision
-
-# Secrets — never commit
+# Entorno y secretos
 .env
 .env.*
 !.env.example
 *.pem
 *.key
-secrets/
+*.p12
+*.jks
 
-# Data that may be protected (plans, norms, datasets)
-data/private/
-datasets/
-
-# OS / editors
+# IDE / SO
+.idea/
+*.iml
+.vscode/
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/*
-!.vscode/extensions.json
-
-# Postgres embebido de desarrollo (scripts/dev_api.py)
-.devdb/
-
-# Configuración local del entorno de Claude Code
-.claude/
-
-# Generado por Next.js
-next-env.d.ts
+*.log
