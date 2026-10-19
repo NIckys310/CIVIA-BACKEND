@@ -23,7 +23,7 @@ public class DatabaseUrlPostProcessor implements EnvironmentPostProcessor, Order
         String raw = env.getProperty("DATABASE_URL");
         if (raw == null || !(raw.startsWith("postgres://") || raw.startsWith("postgresql://"))) return;
         URI uri = URI.create(raw.replaceFirst("^postgres(ql)?://", "http://"));
-        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
+        String query = jdbcQuery(uri.getRawQuery());
         int port = uri.getPort() > 0 ? uri.getPort() : 5432;
         Map<String, Object> props = new HashMap<>();
         props.put("spring.datasource.url", "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getRawPath() + query);
@@ -36,6 +36,20 @@ public class DatabaseUrlPostProcessor implements EnvironmentPostProcessor, Order
         }
         env.getPropertySources().addFirst(new MapPropertySource("civia-database-url", props));
     }
+
+    /**
+     * Conserva los parámetros que entiende el driver JDBC (p. ej. {@code sslmode=require}) y quita
+     * los que solo existen en libpq/psql, como {@code channel_binding} que añade Neon.
+     */
+    static String jdbcQuery(String rawQuery) {
+        if (rawQuery == null || rawQuery.isBlank()) return "";
+        String kept = java.util.Arrays.stream(rawQuery.split("&"))
+                .filter(p -> !p.isBlank() && !LIBPQ_ONLY.contains(p.split("=", 2)[0].toLowerCase()))
+                .collect(java.util.stream.Collectors.joining("&"));
+        return kept.isEmpty() ? "" : "?" + kept;
+    }
+
+    private static final java.util.Set<String> LIBPQ_ONLY = java.util.Set.of("channel_binding");
 
     @Override
     public int getOrder() {
