@@ -1,11 +1,13 @@
 # Imagen de CIVIA AI (API + interfaz) en un solo contenedor.
 # Compila la capa de IA (CIVIA-IA) y toma la interfaz (CIVIA-FRONTEND) desde GitHub.
-#   docker build -t civia --build-arg CIVIA_REF=feature/java-rewrite .
+#   docker build -t civia .                                   (usa main)
+#   docker build -t civia --build-arg CIVIA_REF=develop .     (otra rama)
 #   docker run -p 8080:8080 -e ANTHROPIC_API_KEY=... civia
 
 FROM eclipse-temurin:21-jdk AS build
-# Rama de CIVIA-IA y CIVIA-FRONTEND a compilar. Cambiar a main cuando se integren los PR.
-ARG CIVIA_REF=feature/java-rewrite
+# Rama de CIVIA-IA y CIVIA-FRONTEND a compilar. `main` siempre existe; las ramas de trabajo
+# se borran al fusionar su PR, así que no deben usarse como valor por defecto.
+ARG CIVIA_REF=main
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN git clone --depth 1 --branch "$CIVIA_REF" https://github.com/NIckys310/CIVIA-IA.git CIVIA-IA \
