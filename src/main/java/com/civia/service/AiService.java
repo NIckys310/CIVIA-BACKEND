@@ -305,6 +305,35 @@ public class AiService {
         return new PreparedChat(conv.getId(), req.message(), history, ctx, attachments);
     }
 
+    /**
+     * Prepara una nueva respuesta para la última pregunta de la conversación: borra la última
+     * respuesta del Copilot y reutiliza la pregunta, con el historial anterior a ella.
+     */
+    @Transactional
+    public PreparedChat prepareRegenerate(UUID conversationId) {
+        AiConversation conv = ownConversation(conversationId);
+        quota.acquire(access.me().getId());
+        List<AiMessage> all = new ArrayList<>(messages.findByConversationIdOrderByCreatedAtAsc(conv.getId()));
+        if (!all.isEmpty() && "assistant".equals(all.get(all.size() - 1).getRole())) {
+            messages.delete(all.remove(all.size() - 1));
+        }
+        if (all.isEmpty() || !"user".equals(all.get(all.size() - 1).getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No hay una pregunta para responder de nuevo.");
+        }
+        AiMessage question = all.remove(all.size() - 1);
+        List<LlmProvider.Turn> history = new ArrayList<>();
+        for (AiMessage m : all.subList(Math.max(0, all.size() - historyTurns), all.size())) {
+            history.add(new LlmProvider.Turn(m.getRole(), m.getContent()));
+        }
+        ArchitectAssistant.ProjectContext ctx = null;
+        Project project = conv.getProject();
+        if (project != null) {
+            access.view(project.getId());
+            ctx = new ArchitectAssistant.ProjectContext(describe(project), ai.projects().review(snapshot(project)));
+        }
+        return new PreparedChat(conv.getId(), question.getContent(), history, ctx, List.of());
+    }
+
     /** Guarda la respuesta del Copilot. No depende del usuario en sesión: sirve también en streaming. */
     @Transactional
     public Dto.ChatResponse saveReply(UUID conversationId, ArchitectAssistant.Answer answer) {
