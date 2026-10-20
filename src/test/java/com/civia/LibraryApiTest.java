@@ -134,4 +134,15 @@ class LibraryApiTest {
         mvc.perform(get("/api/v1/library/articles").param("category", "geotecnia").header("Authorization", author))
                 .andExpect(jsonPath("$[*].slug", not(hasItem(slug))));
     }
+
+    @Test
+    void longLibraryQuestionsAreRejected() throws Exception {
+        String auth = token("pregunta-larga@civia.test");
+        mvc.perform(post("/api/v1/library/ask").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"question\":\"" + "b".repeat(2001) + "\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/library/ask").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"question\":\"¿Qué es el CBR?\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.sources").isArray());
+    }
 }
