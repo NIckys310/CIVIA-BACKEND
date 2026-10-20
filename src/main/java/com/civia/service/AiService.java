@@ -457,6 +457,24 @@ public class AiService {
                 "engine", ai.engineName());
     }
 
+    /** Preguntas sugeridas: las del estado del proyecto primero, luego generales de ingeniería civil. */
+    @Transactional(readOnly = true)
+    public List<String> suggestions(UUID projectId) {
+        List<String> out = new ArrayList<>();
+        if (projectId != null) {
+            Project p = access.view(projectId);
+            for (Recommendation r : ai.projects().review(snapshot(p))) {
+                out.add("¿Cómo resuelvo esto en " + p.getName() + ": " + r.title().toLowerCase() + "?");
+                if (out.size() == 3) break;
+            }
+            out.add("¿Qué le falta a " + p.getName() + "?");
+        }
+        out.addAll(List.of("¿Cómo predimensiono una viga de concreto?", "Explícame la licuación de suelos",
+                "¿Qué pruebas pido para recibir el concreto?", "Caudal de diseño con el método racional",
+                "Diferencias entre pavimento rígido y flexible"));
+        return out.stream().distinct().limit(6).toList();
+    }
+
     // ------------------------------------------------------------------ utilidades
 
     private Dto.MessageDto message(AiMessage m) {
