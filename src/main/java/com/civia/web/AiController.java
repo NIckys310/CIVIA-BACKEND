@@ -55,17 +55,20 @@ public class AiController {
                 .body(stream.stream(req));
     }
 
+    @Operation(summary = "Listar o buscar conversaciones (?q=)")
     @GetMapping("/conversations")
     public List<ConversationDto> conversations(@RequestParam(required = false) String q) {
         return q == null || q.isBlank() ? ai.conversations() : ai.searchConversations(q);
     }
 
+    @Operation(summary = "Mensajes de una conversación")
     @GetMapping("/conversations/{id}")
     public List<MessageDto> conversation(@PathVariable UUID id) {
         return ai.conversation(id);
     }
 
     /** Renombra o fija una conversación. */
+    @Operation(summary = "Renombrar o fijar una conversación")
     @PatchMapping("/conversations/{id}")
     public ConversationDto updateConversation(@PathVariable UUID id, @RequestBody ConversationUpdate req) {
         return ai.updateConversation(id, req);
