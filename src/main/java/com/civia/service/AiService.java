@@ -325,6 +325,15 @@ public class AiService {
         return conversations.listForUser(access.me().getId()).stream().map(this::conversationDto).toList();
     }
 
+    /** Conversaciones cuyo título o mensajes contienen el texto. */
+    @Transactional(readOnly = true)
+    public List<Dto.ConversationDto> searchConversations(String query) {
+        String q = query == null ? "" : query.strip().toLowerCase();
+        if (q.isEmpty()) return conversations();
+        String pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        return conversations.searchForUser(access.me().getId(), pattern).stream().map(this::conversationDto).toList();
+    }
+
     private Dto.ConversationDto conversationDto(AiConversation c) {
         Instant last = c.getLastMessageAt() != null ? c.getLastMessageAt() : c.getUpdatedAt();
         return new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
