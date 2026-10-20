@@ -6,6 +6,7 @@ import com.civia.ai.models.ModelAnalyzer;
 import com.civia.service.AiService;
 import com.civia.service.CopilotStreamService;
 import com.civia.web.Dto.*;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class AiController {
         this.stream = stream;
     }
 
+    @Operation(summary = "Motor de IA activo y capacidades")
     @GetMapping("/status")
     public Map<String, Object> status() {
         return Map.of("engine", ai.engine().engineName(), "llm", ai.engine().llmEnabled(), "streaming", true,
@@ -37,12 +39,14 @@ public class AiController {
                         "project-review", "library"));
     }
 
+    @Operation(summary = "Preguntar al Copilot (respuesta completa)")
     @PostMapping("/chat")
     public ChatResponse chat(@RequestBody ChatRequest req) {
         return ai.chat(req);
     }
 
     /** Igual que {@code /chat}, pero entrega la respuesta a medida que se escribe (Server-Sent Events). */
+    @Operation(summary = "Preguntar al Copilot en tiempo real (Server-Sent Events)")
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> chatStream(@RequestBody ChatRequest req) {
         return ResponseEntity.ok()
