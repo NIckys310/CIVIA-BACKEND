@@ -18,7 +18,10 @@ PostgreSQL en **Neon** y la interfaz pública en Vercel.
 1. **New → Blueprint** apuntando a CIVIA-BACKEND (usa `render.yaml`).
 2. En **Environment** define:
    - `DATABASE_URL`: la cadena de Neon del paso anterior.
-   - `ANTHROPIC_API_KEY` (opcional) para Claude.
+   - `ANTHROPIC_API_KEY` (opcional) para Claude: créala en https://console.anthropic.com
+     (Settings → API keys) y pégala solo en Render. Sin ella el Copilot usa el motor local.
+   - `CIVIA_AI_EFFORT` (`high` por defecto) y `CIVIA_AI_REQUESTS_PER_MINUTE` (20) para equilibrar
+     calidad y costo.
    - `CIVIA_JWT_SECRET` y `CIVIA_DATA_KEY` las genera Render. No las cambies: se cerrarían las
      sesiones y no se podrían leer los datos cifrados.
 3. El Dockerfile compila CIVIA-IA y toma la interfaz de CIVIA-FRONTEND (`CIVIA_REF`, por defecto `main`).
@@ -35,3 +38,9 @@ persistente en `/app/data`.
 ```bash
 java server/CiviaWeb.java --port 3000 --api https://tu-api.example.com
 ```
+
+## Streaming del Copilot
+
+`/api/v1/ai/chat/stream` usa Server-Sent Events. Vercel reenvía la respuesta sin acumularla
+(la API envía `Cache-Control: no-transform` y `X-Accel-Buffering: no`). Si un proxy la acumulara,
+la interfaz igual recibe la respuesta completa al final.

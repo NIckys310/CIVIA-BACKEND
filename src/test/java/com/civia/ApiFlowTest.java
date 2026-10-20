@@ -281,7 +281,7 @@ class ApiFlowTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.sources[0].slug").value("escaleras"));
 
         mvc.perform(get("/api/v1/library/categories").header("Authorization", auth))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(13));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(19));
 
         mvc.perform(post("/api/v1/projects/" + projectId + "/budget/template").header("Authorization", auth))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.chapters.length()").value(14));

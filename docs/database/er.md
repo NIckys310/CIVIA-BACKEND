@@ -53,7 +53,7 @@ con 🔒 se cifran en reposo con AES-256-GCM.
 |---|---|
 | `ai_analyses` | Análisis de planos, modelos y proyectos (resultado completo en JSON) |
 | `ai_findings` | Hallazgos por verificación (OK / FALTA / REVISAR) y su resolución |
-| `ai_conversations`, `ai_messages` | Conversaciones de Copilot con fuentes citadas |
+| `ai_conversations`, `ai_messages` | Conversaciones de Copilot con fuentes citadas; `pinned` y `last_message_at` ordenan la lista y `feedback` (1 / −1) guarda la valoración de cada respuesta |
 | `library_articles` | Artículos aportados por el estudio (se suman a la búsqueda) |
 | `library_favorites`, `library_search_log` | Favoritos y búsquedas |
 

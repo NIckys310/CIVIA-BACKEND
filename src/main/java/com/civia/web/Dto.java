@@ -119,9 +119,16 @@ public final class Dto {
 
     public record ChatResponse(UUID conversationId, MessageDto message) {}
 
-    public record MessageDto(UUID id, String role, String content, String engine, Object sources, List<String> suggestions, Instant createdAt) {}
+    public record MessageDto(UUID id, String role, String content, String engine, Object sources, List<String> suggestions,
+                             Instant createdAt, Integer feedback) {}
 
-    public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt) {}
+    /** {@code value}: "up", "down" o null para quitar la valoración. */
+    public record FeedbackRequest(String value) {}
+
+    public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt, boolean pinned) {}
+
+    /** Cambios en una conversación: título y/o fijada. Los campos nulos no cambian. */
+    public record ConversationUpdate(String title, Boolean pinned) {}
 
     public record AnalysisDto(UUID id, String analysisType, String engine, String summary, Integer completeness,
                               UUID documentId, String documentName, Object result, Instant createdAt) {}
@@ -135,7 +142,7 @@ public final class Dto {
     public record ArticleSummary(String slug, String category, String title, String summary, List<String> tags, boolean custom) {}
 
     public record ArticleDto(String slug, String category, String title, String summary, List<String> tags, String body,
-                             boolean custom, boolean favorite, List<ArticleSummary> related) {}
+                             boolean custom, boolean favorite, List<ArticleSummary> related, boolean mine) {}
 
     public record ArticleRequest(String category, String title, String summary, String body, List<String> tags) {}
 

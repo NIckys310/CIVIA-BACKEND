@@ -11,8 +11,10 @@ import com.civia.domain.User;
 import com.civia.repo.LibraryArticleRepository;
 import com.civia.repo.LibraryFavoriteRepository;
 import com.civia.repo.LibrarySearchLogRepository;
+import com.civia.service.AiQuota;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -37,15 +39,17 @@ public class LibraryController {
     private final LibraryArticleRepository custom;
     private final LibraryFavoriteRepository favorites;
     private final LibrarySearchLogRepository searches;
+    private final AiQuota quota;
     private volatile Set<String> customSlugs = Set.of();
 
     public LibraryController(CiviaAi ai, ProjectAccess access, LibraryArticleRepository custom,
-                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches) {
+                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches, AiQuota quota) {
         this.ai = ai;
         this.access = access;
         this.custom = custom;
         this.favorites = favorites;
         this.searches = searches;
+        this.quota = quota;
     }
 
     /** Suma a la búsqueda los artículos creados por los usuarios. */
@@ -54,7 +58,8 @@ public class LibraryController {
     public void loadCustomArticles() {
         List<LibraryArticle> all = custom.findAll();
         customSlugs = new HashSet<>(all.stream().map(LibraryArticle::getSlug).toList());
-        if (!all.isEmpty()) ai.extendLibrary(all.stream().map(LibraryController::toKb).toList());
+        // Siempre se reconstruye: así un artículo borrado también sale de la búsqueda.
+        ai.extendLibrary(all.stream().map(LibraryController::toKb).toList());
     }
 
     private static KnowledgeBase.Article toKb(LibraryArticle a) {
@@ -67,6 +72,27 @@ public class LibraryController {
         return new ArticleSummary(a.slug(), a.category(), a.title(), a.summary(), a.tags(), customSlugs.contains(a.slug()));
     }
 
+    /** Artículo destacado del día: cambia cada día y es el mismo para todos. */
+    @Operation(summary = "Artículo del día")
+    @GetMapping("/featured")
+    public ArticleSummary featured() {
+        List<KnowledgeBase.Article> all = ai.library().articles().stream()
+                .sorted(java.util.Comparator.comparing(KnowledgeBase.Article::slug)).toList();
+        if (all.isEmpty()) throw ProjectAccess.notFound("Artículo");
+        int index = (int) Math.floorMod(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toEpochDay() * 7919L, all.size());
+        return summary(all.get(index));
+    }
+
+    /** Tamaño de la biblioteca. */
+    @Operation(summary = "Tamaño de la biblioteca")
+    @GetMapping("/stats")
+    public Map<String, Object> stats() {
+        KnowledgeBase kb = ai.library();
+        return Map.of("categories", kb.categories().size(), "articles", kb.articles().size(),
+                "terms", kb.terms().size(), "custom", customSlugs.size());
+    }
+
+    @Operation(summary = "Categorías con su número de artículos")
     @GetMapping("/categories")
     public List<CategoryDto> categories() {
         KnowledgeBase kb = ai.library();
@@ -74,23 +100,29 @@ public class LibraryController {
                 .map(c -> new CategoryDto(c.id(), c.name(), c.icon(), c.description(), kb.articlesIn(c.id()).size())).toList();
     }
 
+    @Operation(summary = "Artículos (opcionalmente de una categoría)")
     @GetMapping("/articles")
     public List<ArticleSummary> articles(@RequestParam(required = false) String category) {
         KnowledgeBase kb = ai.library();
         return (category == null ? kb.articles() : kb.articlesIn(category)).stream().map(this::summary).toList();
     }
 
+    @Operation(summary = "Leer un artículo con sus relacionados")
     @GetMapping("/articles/{slug}")
     @Transactional(readOnly = true)
     public ArticleDto article(@PathVariable String slug) {
         KnowledgeBase kb = ai.library();
         KnowledgeBase.Article a = kb.article(slug).orElseThrow(() -> ProjectAccess.notFound("Artículo"));
-        boolean fav = favorites.findByUserIdAndSlug(access.me().getId(), slug).isPresent();
+        User me = access.me();
+        boolean fav = favorites.findByUserIdAndSlug(me.getId(), slug).isPresent();
+        boolean mine = customSlugs.contains(slug) && custom.findBySlug(slug)
+                .map(x -> x.getAuthor() != null && x.getAuthor().getId().equals(me.getId())).orElse(false);
         List<ArticleSummary> related = kb.searchArticles(a.title() + " " + String.join(" ", a.tags()), 6).stream()
                 .filter(r -> !r.slug().equals(slug)).limit(4).map(this::summary).toList();
-        return new ArticleDto(a.slug(), a.category(), a.title(), a.summary(), a.tags(), a.body(), customSlugs.contains(slug), fav, related);
+        return new ArticleDto(a.slug(), a.category(), a.title(), a.summary(), a.tags(), a.body(), customSlugs.contains(slug), fav, related, mine);
     }
 
+    @Operation(summary = "Aportar un artículo")
     @PostMapping("/articles")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
@@ -120,6 +152,41 @@ public class LibraryController {
         return summary(toKb(a));
     }
 
+    /** Artículo propio: solo quien lo escribió puede cambiarlo o borrarlo. Los de CIVIA no se editan. */
+    private LibraryArticle ownArticle(String slug) {
+        User me = access.me();
+        return custom.findBySlug(slug)
+                .filter(a -> a.getAuthor() != null && a.getAuthor().getId().equals(me.getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Artículo"));
+    }
+
+    @Operation(summary = "Editar un artículo propio")
+    @PutMapping("/articles/{slug}")
+    @Transactional
+    public ArticleSummary update(@PathVariable String slug, @RequestBody ArticleRequest req) {
+        LibraryArticle a = ownArticle(slug);
+        if (req.title() != null && !req.title().isBlank()) a.setTitle(req.title().strip());
+        if (req.body() != null && !req.body().isBlank()) a.setBody(req.body());
+        if (req.summary() != null) a.setSummary(req.summary());
+        if (req.tags() != null) a.setTagsCsv(String.join(",", req.tags()));
+        if (req.category() != null && ai.library().categories().stream().anyMatch(c -> c.id().equals(req.category()))) {
+            a.setCategory(req.category());
+        }
+        loadCustomArticles();
+        return summary(toKb(a));
+    }
+
+    @Operation(summary = "Borrar un artículo propio")
+    @DeleteMapping("/articles/{slug}")
+    @Transactional
+    public Map<String, Object> delete(@PathVariable String slug) {
+        custom.delete(ownArticle(slug));
+        custom.flush();
+        loadCustomArticles();
+        return Map.of("deleted", true);
+    }
+
+    @Operation(summary = "Buscar artículos y términos")
     @GetMapping("/search")
     @Transactional
     public Map<String, Object> search(@RequestParam String q) {
@@ -141,21 +208,41 @@ public class LibraryController {
         return Map.of("articles", articles, "terms", terms);
     }
 
+    /** Últimas búsquedas del usuario (sin repetir), para retomarlas. Nunca se muestran las de otras personas. */
+    @Operation(summary = "Mis búsquedas recientes")
+    @GetMapping("/recent-searches")
+    @Transactional(readOnly = true)
+    public List<String> recentSearches() {
+        return searches.findTop40ByUserIdOrderByCreatedAtDesc(access.me().getId()).stream()
+                .map(l -> l.getQuery() == null ? "" : l.getQuery().strip())
+                .filter(q -> !q.isEmpty())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new))
+                .stream().limit(8).toList();
+    }
+
+    @Operation(summary = "Glosario (filtra por texto o categoría)")
     @GetMapping("/terms")
-    public List<TermDto> terms(@RequestParam(required = false) String q) {
+    public List<TermDto> terms(@RequestParam(required = false) String q, @RequestParam(required = false) String category) {
         String folded = q == null ? "" : SearchIndex.fold(q);
         return ai.library().terms().stream()
+                .filter(t -> category == null || category.isBlank() || category.equals(t.category()))
                 .filter(t -> folded.isEmpty() || SearchIndex.fold(t.term() + " " + t.definition()).contains(folded))
                 .map(t -> new TermDto(t.term(), t.category(), t.definition())).toList();
     }
 
     /** Una sola pregunta → respuesta compuesta con citas a la biblioteca. */
+    @Operation(summary = "Pregunta única con respuesta citada")
     @PostMapping("/ask")
     public ArchitectAssistant.Answer ask(@RequestBody AskRequest req) {
-        access.me();
+        // Con Claude activo esta pregunta también tiene costo: comparte la cuota del Copilot.
+        quota.acquire(access.me().getId());
+        if (req.question() != null && req.question().length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La pregunta es muy larga (máximo 2000 caracteres).");
+        }
         return ai.assistant().ask(req.question(), List.of(), null, List.of());
     }
 
+    @Operation(summary = "Mis artículos favoritos")
     @GetMapping("/favorites")
     @Transactional(readOnly = true)
     public List<ArticleSummary> favorites() {
@@ -164,6 +251,7 @@ public class LibraryController {
                 .map(f -> kb.article(f.getSlug()).orElse(null)).filter(a -> a != null).map(this::summary).toList();
     }
 
+    @Operation(summary = "Marcar como favorito")
     @PutMapping("/favorites/{slug}")
     @Transactional
     public Map<String, Object> addFavorite(@PathVariable String slug) {
@@ -178,6 +266,7 @@ public class LibraryController {
         return Map.of("favorite", true);
     }
 
+    @Operation(summary = "Quitar de favoritos")
     @DeleteMapping("/favorites/{slug}")
     @Transactional
     public Map<String, Object> removeFavorite(@PathVariable String slug) {

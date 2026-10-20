@@ -29,7 +29,9 @@ Abre **http://localhost:8080**, crea tu cuenta y listo. La primera vez compila l
 la API (unos minutos); después arranca en segundos.
 
 Para activar Claude en el Copilot y en la lectura visual de planos, define `ANTHROPIC_API_KEY`
-antes de arrancar. Sin clave, CIVIA usa su motor local (biblioteca con citas y reglas de revisión).
+antes de arrancar. Con Claude, el Copilot conversa como un experto, responde cualquier pregunta y
+escribe la respuesta en tiempo real. Sin clave, CIVIA usa su motor local (biblioteca con citas y
+reglas de revisión).
 
 ## API
 
@@ -40,8 +42,8 @@ Documentación interactiva: `http://localhost:8080/api/docs` (OpenAPI en `/api/v
 | `/api/v1/auth` | **CIVIA Auth**: `register`, `token` (grant `password` / `refresh_token`), `revoke`, `user`, `password`, `sessions`, `mfa/*`, `security-events` |
 | `/api/v1/projects` | Proyectos, miembros, fases, niveles, espacios, tareas, comentarios, bitácora, presupuesto |
 | `/api/v1/projects/{id}/documents` · `/api/v1/documents` | Subida de planos, modelos 3D, fotos y documentos; versiones, vista previa, mediciones, notas 3D |
-| `/api/v1/ai` | Copilot (`chat`), análisis de planos y modelos, volumetría, recomendaciones del proyecto |
-| `/api/v1/library` | Categorías, artículos, búsqueda, glosario, pregunta única (`ask`), favoritos |
+| `/api/v1/ai` | Copilot (`chat` y `chat/stream` en tiempo real), historial (buscar, renombrar, fijar, exportar, regenerar, valorar, borrar), análisis de planos y modelos, volumetría, recomendaciones del proyecto |
+| `/api/v1/library` | 19 categorías de ingeniería civil y arquitectura, artículos (propios editables), artículo del día, estadísticas, búsqueda y búsquedas recientes, glosario por categoría, pregunta única (`ask`), favoritos |
 | `/api/v1/dashboard`, `/notifications`, `/clients` | Panel, notificaciones y clientes |
 
 ## Seguridad

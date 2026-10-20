@@ -17,12 +17,14 @@ import com.civia.web.Dto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,11 +51,19 @@ public class AiService {
     private final RoomRepository rooms;
     private final StorageService storage;
     private final AuditService audit;
+    private final AiQuota quota;
+
+    @Value("${civia.ai.history-turns:40}")
+    private int historyTurns = 40;
+
+    @Value("${civia.ai.max-message-chars:12000}")
+    private int maxMessageChars = 12_000;
 
     public AiService(CiviaAi ai, ObjectMapper json, ProjectAccess access, DocumentRepository documents,
                      AiAnalysisRepository analyses, AiFindingRepository findings, AiConversationRepository conversations,
                      AiMessageRepository messages, TaskRepository tasks, BudgetItemRepository budgetItems,
-                     ProjectMemberRepository members, RoomRepository rooms, StorageService storage, AuditService audit) {
+                     ProjectMemberRepository members, RoomRepository rooms, StorageService storage, AuditService audit,
+                     AiQuota quota) {
         this.ai = ai;
         this.json = json;
         this.access = access;
@@ -68,6 +78,7 @@ public class AiService {
         this.rooms = rooms;
         this.storage = storage;
         this.audit = audit;
+        this.quota = quota;
     }
 
     public CiviaAi engine() {
@@ -80,6 +91,7 @@ public class AiService {
     public Dto.AnalysisDto analyzePlan(UUID documentId, String notes) {
         Document d = documents.findById(documentId).orElseThrow(() -> ProjectAccess.notFound("Archivo"));
         access.edit(d.getProject().getId());
+        if (ai.llmEnabled()) quota.acquire(access.me().getId());
         if (d.getKind() == DocumentKind.MODEL_3D) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los modelos 3D se analizan desde el visor 3D.");
         }
@@ -126,6 +138,7 @@ public class AiService {
     public Dto.AnalysisDto analyzeModel(UUID documentId, ModelAnalyzer.ModelStats stats) {
         Document d = documents.findById(documentId).orElseThrow(() -> ProjectAccess.notFound("Archivo"));
         Project p = access.edit(d.getProject().getId());
+        if (ai.llmEnabled()) quota.acquire(access.me().getId());
         ModelAnalyzer.ModelReport report = ai.models().analyze(stats, p.getDescription());
         AiAnalysis a = new AiAnalysis();
         a.setProject(p);
@@ -219,12 +232,29 @@ public class AiService {
 
     // ------------------------------------------------------------------ copiloto
 
+    /** Pregunta lista para el Copilot: la conversación ya existe y el mensaje del usuario quedó guardado. */
+    public record PreparedChat(UUID conversationId, String message, List<LlmProvider.Turn> history,
+                               ArchitectAssistant.ProjectContext project, List<LlmProvider.Attachment> attachments) {}
+
     @Transactional
     public Dto.ChatResponse chat(Dto.ChatRequest req) {
+        PreparedChat chat = prepareChat(req);
+        ArchitectAssistant.Answer answer = ai.assistant().ask(chat.message(), chat.history(), chat.project(), chat.attachments());
+        return saveReply(chat.conversationId(), answer);
+    }
+
+    /** Valida el acceso, crea o recupera la conversación y guarda el mensaje del usuario. */
+    @Transactional
+    public PreparedChat prepareChat(Dto.ChatRequest req) {
         if (req.message() == null || req.message().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escribe un mensaje.");
         }
+        if (req.message().length() > maxMessageChars) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El mensaje es muy largo (máximo " + maxMessageChars + " caracteres). Divídelo en partes.");
+        }
         User me = access.me();
+        quota.acquire(me.getId());
         AiConversation conv;
         if (req.conversationId() != null) {
             conv = conversations.findById(req.conversationId()).filter(c -> c.getUser().getId().equals(me.getId()))
@@ -245,7 +275,7 @@ public class AiService {
 
         List<LlmProvider.Turn> history = new ArrayList<>();
         List<AiMessage> previous = messages.findByConversationIdOrderByCreatedAtAsc(conv.getId());
-        for (AiMessage m : previous.subList(Math.max(0, previous.size() - 20), previous.size())) {
+        for (AiMessage m : previous.subList(Math.max(0, previous.size() - historyTurns), previous.size())) {
             history.add(new LlmProvider.Turn(m.getRole(), m.getContent()));
         }
 
@@ -274,8 +304,43 @@ public class AiService {
         userMsg.setRole("user");
         userMsg.setContent(req.message());
         messages.save(userMsg);
+        return new PreparedChat(conv.getId(), req.message(), history, ctx, attachments);
+    }
 
-        ArchitectAssistant.Answer answer = ai.assistant().ask(req.message(), history, ctx, attachments);
+    /**
+     * Prepara una nueva respuesta para la última pregunta de la conversación: borra la última
+     * respuesta del Copilot y reutiliza la pregunta, con el historial anterior a ella.
+     */
+    @Transactional
+    public PreparedChat prepareRegenerate(UUID conversationId) {
+        AiConversation conv = ownConversation(conversationId);
+        quota.acquire(access.me().getId());
+        List<AiMessage> all = new ArrayList<>(messages.findByConversationIdOrderByCreatedAtAsc(conv.getId()));
+        if (!all.isEmpty() && "assistant".equals(all.get(all.size() - 1).getRole())) {
+            messages.delete(all.remove(all.size() - 1));
+        }
+        if (all.isEmpty() || !"user".equals(all.get(all.size() - 1).getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No hay una pregunta para responder de nuevo.");
+        }
+        AiMessage question = all.remove(all.size() - 1);
+        List<LlmProvider.Turn> history = new ArrayList<>();
+        for (AiMessage m : all.subList(Math.max(0, all.size() - historyTurns), all.size())) {
+            history.add(new LlmProvider.Turn(m.getRole(), m.getContent()));
+        }
+        ArchitectAssistant.ProjectContext ctx = null;
+        Project project = conv.getProject();
+        if (project != null) {
+            access.view(project.getId());
+            ctx = new ArchitectAssistant.ProjectContext(describe(project), ai.projects().review(snapshot(project)));
+        }
+        return new PreparedChat(conv.getId(), question.getContent(), history, ctx, List.of());
+    }
+
+    /** Guarda la respuesta del Copilot. No depende del usuario en sesión: sirve también en streaming. */
+    @Transactional
+    public Dto.ChatResponse saveReply(UUID conversationId, ArchitectAssistant.Answer answer) {
+        AiConversation conv = conversations.findById(conversationId).orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        conv.setLastMessageAt(Instant.now());
         AiMessage reply = new AiMessage();
         reply.setConversation(conv);
         reply.setRole("assistant");
@@ -288,24 +353,128 @@ public class AiService {
 
     @Transactional(readOnly = true)
     public List<Dto.ConversationDto> conversations() {
-        return conversations.findByUserIdOrderByUpdatedAtDesc(access.me().getId()).stream()
-                .map(c -> new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
-                        c.getProject() == null ? null : c.getProject().getName(), c.getUpdatedAt())).toList();
+        return conversations.listForUser(access.me().getId()).stream().map(this::conversationDto).toList();
+    }
+
+    /** Conversaciones cuyo título o mensajes contienen el texto. */
+    @Transactional(readOnly = true)
+    public List<Dto.ConversationDto> searchConversations(String query) {
+        String q = query == null ? "" : query.strip().toLowerCase();
+        if (q.isEmpty()) return conversations();
+        String pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        return conversations.searchForUser(access.me().getId(), pattern).stream().map(this::conversationDto).toList();
+    }
+
+    /** Conversación del usuario en sesión; si es de otra persona responde 404. */
+    private AiConversation ownConversation(UUID id) {
+        return conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+    }
+
+    private Dto.ConversationDto conversationDto(AiConversation c) {
+        Instant last = c.getLastMessageAt() != null ? c.getLastMessageAt() : c.getUpdatedAt();
+        return new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
+                c.getProject() == null ? null : c.getProject().getName(), last, c.isPinned());
     }
 
     @Transactional(readOnly = true)
     public List<Dto.MessageDto> conversation(UUID id) {
-        AiConversation c = conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
-                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        AiConversation c = ownConversation(id);
         return messages.findByConversationIdOrderByCreatedAtAsc(c.getId()).stream().map(this::message).toList();
     }
 
     @Transactional
+    public Dto.ConversationDto updateConversation(UUID id, Dto.ConversationUpdate req) {
+        AiConversation c = ownConversation(id);
+        if (req.title() != null) {
+            String title = req.title().strip().replaceAll("\\s+", " ");
+            if (title.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El título no puede quedar vacío.");
+            c.setTitle(title.length() > 120 ? title.substring(0, 120) : title);
+        }
+        if (req.pinned() != null) c.setPinned(req.pinned());
+        return conversationDto(c);
+    }
+
+    /** Valoración de una respuesta del Copilot: "up", "down" o null para quitarla. */
+    @Transactional
+    public Dto.MessageDto feedback(UUID messageId, String value) {
+        AiMessage m = messages.findById(messageId)
+                .filter(x -> x.getConversation().getUser().getId().equals(access.me().getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Mensaje"));
+        if (!"assistant".equals(m.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se pueden valorar las respuestas del Copilot.");
+        }
+        m.setFeedback(value == null ? null : switch (value) {
+            case "up" -> 1;
+            case "down" -> -1;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valoración no válida: usa \"up\" o \"down\".");
+        });
+        return message(m);
+    }
+
+    /** La conversación en Markdown, para guardarla o compartirla. */
+    @Transactional(readOnly = true)
+    public String exportConversation(UUID id) {
+        AiConversation c = ownConversation(id);
+        StringBuilder md = new StringBuilder("# ").append(c.getTitle() == null ? "Conversación con CIVIA Copilot" : c.getTitle()).append("\n\n");
+        if (c.getProject() != null) md.append("Proyecto: **").append(c.getProject().getName()).append("**\n\n");
+        for (AiMessage m : messages.findByConversationIdOrderByCreatedAtAsc(c.getId())) {
+            md.append("assistant".equals(m.getRole()) ? "## CIVIA Copilot" : "## Tú");
+            if (m.getCreatedAt() != null) md.append(" · ").append(m.getCreatedAt().toString().substring(0, 16).replace('T', ' ')).append(" UTC");
+            md.append("\n\n").append(m.getContent().strip()).append("\n\n");
+        }
+        md.append("---\n_Exportado desde CIVIA AI. Toda salida de CIVIA requiere revisión del profesional responsable._\n");
+        return md.toString();
+    }
+
+    @Transactional
     public void deleteConversation(UUID id) {
-        AiConversation c = conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
-                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        AiConversation c = ownConversation(id);
         messages.deleteByConversationId(c.getId());
         conversations.delete(c);
+    }
+
+    /** Borra todo el historial del Copilot del usuario en sesión. Devuelve cuántas conversaciones se borraron. */
+    @Transactional
+    public int deleteAllConversations() {
+        List<AiConversation> mine = conversations.listForUser(access.me().getId());
+        for (AiConversation c : mine) {
+            messages.deleteByConversationId(c.getId());
+            conversations.delete(c);
+        }
+        audit.audit(access.me().getId(), "ai.history-cleared", null, mine.size() + " conversaciones");
+        return mine.size();
+    }
+
+    /** Resumen del uso del Copilot del usuario en sesión. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> usage() {
+        UUID me = access.me().getId();
+        return Map.of(
+                "conversations", conversations.listForUser(me).size(),
+                "questions", messages.countByConversation_User_IdAndRole(me, "user"),
+                "answers", messages.countByConversation_User_IdAndRole(me, "assistant"),
+                "useful", messages.countByConversation_User_IdAndFeedback(me, 1),
+                "notUseful", messages.countByConversation_User_IdAndFeedback(me, -1),
+                "engine", ai.engineName());
+    }
+
+    /** Preguntas sugeridas: las del estado del proyecto primero, luego generales de ingeniería civil. */
+    @Transactional(readOnly = true)
+    public List<String> suggestions(UUID projectId) {
+        List<String> out = new ArrayList<>();
+        if (projectId != null) {
+            Project p = access.view(projectId);
+            for (Recommendation r : ai.projects().review(snapshot(p))) {
+                out.add("¿Cómo resuelvo esto en " + p.getName() + ": " + r.title().toLowerCase() + "?");
+                if (out.size() == 3) break;
+            }
+            out.add("¿Qué le falta a " + p.getName() + "?");
+        }
+        out.addAll(List.of("¿Cómo predimensiono una viga de concreto?", "Explícame la licuación de suelos",
+                "¿Qué pruebas pido para recibir el concreto?", "Caudal de diseño con el método racional",
+                "Diferencias entre pavimento rígido y flexible"));
+        return out.stream().distinct().limit(6).toList();
     }
 
     // ------------------------------------------------------------------ utilidades
@@ -314,7 +483,8 @@ public class AiService {
         Map<String, Object> meta = m.getSourcesJson() == null ? Map.of() : readMap(m.getSourcesJson());
         @SuppressWarnings("unchecked")
         List<String> suggestions = (List<String>) meta.getOrDefault("suggestions", List.of());
-        return new Dto.MessageDto(m.getId(), m.getRole(), m.getContent(), m.getEngine(), meta.get("sources"), suggestions, m.getCreatedAt());
+        return new Dto.MessageDto(m.getId(), m.getRole(), m.getContent(), m.getEngine(), meta.get("sources"), suggestions, m.getCreatedAt(),
+                m.getFeedback());
     }
 
     private Dto.AnalysisDto toDto(AiAnalysis a, Object result) {
