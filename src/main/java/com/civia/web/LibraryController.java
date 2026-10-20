@@ -68,6 +68,16 @@ public class LibraryController {
         return new ArticleSummary(a.slug(), a.category(), a.title(), a.summary(), a.tags(), customSlugs.contains(a.slug()));
     }
 
+    /** Artículo destacado del día: cambia cada día y es el mismo para todos. */
+    @GetMapping("/featured")
+    public ArticleSummary featured() {
+        List<KnowledgeBase.Article> all = ai.library().articles().stream()
+                .sorted(java.util.Comparator.comparing(KnowledgeBase.Article::slug)).toList();
+        if (all.isEmpty()) throw ProjectAccess.notFound("Artículo");
+        int index = (int) Math.floorMod(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toEpochDay() * 7919L, all.size());
+        return summary(all.get(index));
+    }
+
     @GetMapping("/categories")
     public List<CategoryDto> categories() {
         KnowledgeBase kb = ai.library();
