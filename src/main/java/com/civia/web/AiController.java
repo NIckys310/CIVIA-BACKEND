@@ -74,6 +74,7 @@ public class AiController {
         return ai.updateConversation(id, req);
     }
 
+    @Operation(summary = "Borrar una conversación")
     @DeleteMapping("/conversations/{id}")
     public Map<String, Object> deleteConversation(@PathVariable UUID id) {
         ai.deleteConversation(id);
@@ -81,6 +82,7 @@ public class AiController {
     }
 
     /** Nueva respuesta para la última pregunta, en streaming. */
+    @Operation(summary = "Regenerar la última respuesta (streaming)")
     @PostMapping(value = "/conversations/{id}/regenerate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> regenerate(@PathVariable UUID id) {
         return ResponseEntity.ok()
@@ -90,12 +92,14 @@ public class AiController {
     }
 
     /** Valora una respuesta del Copilot ("up", "down" o null). */
+    @Operation(summary = "Valorar una respuesta")
     @PostMapping("/messages/{id}/feedback")
     public MessageDto feedback(@PathVariable UUID id, @RequestBody FeedbackRequest req) {
         return ai.feedback(id, req.value());
     }
 
     /** La conversación en Markdown (descarga). */
+    @Operation(summary = "Exportar una conversación en Markdown")
     @GetMapping(value = "/conversations/{id}/export", produces = "text/markdown;charset=UTF-8")
     public ResponseEntity<String> exportConversation(@PathVariable UUID id) {
         return ResponseEntity.ok()
@@ -104,6 +108,7 @@ public class AiController {
     }
 
     /** Borra todo el historial del Copilot del usuario. */
+    @Operation(summary = "Borrar todo el historial del Copilot")
     @DeleteMapping("/conversations")
     public Map<String, Object> deleteAllConversations() {
         return Map.of("deleted", ai.deleteAllConversations());
