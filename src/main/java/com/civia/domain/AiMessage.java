@@ -27,4 +27,7 @@ public class AiMessage extends BaseEntity {
     @Column(columnDefinition = "text") private String sourcesJson;
 
     private String engine;
+
+    /** Valoración de quien preguntó: 1 útil, -1 no útil, null sin valorar. */
+    private Integer feedback;
 }
