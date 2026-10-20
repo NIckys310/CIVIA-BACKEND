@@ -29,7 +29,9 @@ Abre **http://localhost:8080**, crea tu cuenta y listo. La primera vez compila l
 la API (unos minutos); después arranca en segundos.
 
 Para activar Claude en el Copilot y en la lectura visual de planos, define `ANTHROPIC_API_KEY`
-antes de arrancar. Sin clave, CIVIA usa su motor local (biblioteca con citas y reglas de revisión).
+antes de arrancar. Con Claude, el Copilot conversa como un experto, responde cualquier pregunta y
+escribe la respuesta en tiempo real. Sin clave, CIVIA usa su motor local (biblioteca con citas y
+reglas de revisión).
 
 ## API
 
