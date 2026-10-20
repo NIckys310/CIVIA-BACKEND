@@ -440,6 +440,7 @@ public class AiService {
             messages.deleteByConversationId(c.getId());
             conversations.delete(c);
         }
+        audit.audit(access.me().getId(), "ai.history-cleared", null, mine.size() + " conversaciones");
         return mine.size();
     }
 
