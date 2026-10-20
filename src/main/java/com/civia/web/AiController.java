@@ -72,6 +72,14 @@ public class AiController {
         return Map.of("deleted", true);
     }
 
+    /** La conversación en Markdown (descarga). */
+    @GetMapping(value = "/conversations/{id}/export", produces = "text/markdown;charset=UTF-8")
+    public ResponseEntity<String> exportConversation(@PathVariable UUID id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"civia-copilot-" + id + ".md\"")
+                .body(ai.exportConversation(id));
+    }
+
     /** Borra todo el historial del Copilot del usuario. */
     @DeleteMapping("/conversations")
     public Map<String, Object> deleteAllConversations() {
