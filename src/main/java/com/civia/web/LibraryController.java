@@ -161,9 +161,10 @@ public class LibraryController {
     }
 
     @GetMapping("/terms")
-    public List<TermDto> terms(@RequestParam(required = false) String q) {
+    public List<TermDto> terms(@RequestParam(required = false) String q, @RequestParam(required = false) String category) {
         String folded = q == null ? "" : SearchIndex.fold(q);
         return ai.library().terms().stream()
+                .filter(t -> category == null || category.isBlank() || category.equals(t.category()))
                 .filter(t -> folded.isEmpty() || SearchIndex.fold(t.term() + " " + t.definition()).contains(folded))
                 .map(t -> new TermDto(t.term(), t.category(), t.definition())).toList();
     }
