@@ -32,8 +32,9 @@ public class AiController {
 
     @GetMapping("/status")
     public Map<String, Object> status() {
-        return Map.of("engine", ai.engine().engineName(), "llm", ai.engine().llmEnabled(),
-                "capabilities", List.of("copilot", "plan-analysis", "model-analysis", "massing", "project-review", "library"));
+        return Map.of("engine", ai.engine().engineName(), "llm", ai.engine().llmEnabled(), "streaming", true,
+                "capabilities", List.of("copilot", "copilot-stream", "plan-analysis", "model-analysis", "massing",
+                        "project-review", "library"));
     }
 
     @PostMapping("/chat")
