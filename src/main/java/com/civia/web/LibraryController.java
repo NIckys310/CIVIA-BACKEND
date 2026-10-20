@@ -160,6 +160,17 @@ public class LibraryController {
         return Map.of("articles", articles, "terms", terms);
     }
 
+    /** Últimas búsquedas del usuario (sin repetir), para retomarlas. Nunca se muestran las de otras personas. */
+    @GetMapping("/recent-searches")
+    @Transactional(readOnly = true)
+    public List<String> recentSearches() {
+        return searches.findTop40ByUserIdOrderByCreatedAtDesc(access.me().getId()).stream()
+                .map(l -> l.getQuery() == null ? "" : l.getQuery().strip())
+                .filter(q -> !q.isEmpty())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new))
+                .stream().limit(8).toList();
+    }
+
     @GetMapping("/terms")
     public List<TermDto> terms(@RequestParam(required = false) String q, @RequestParam(required = false) String category) {
         String folded = q == null ? "" : SearchIndex.fold(q);
