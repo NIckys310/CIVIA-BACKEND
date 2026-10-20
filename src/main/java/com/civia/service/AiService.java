@@ -17,6 +17,7 @@ import com.civia.web.Dto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -308,6 +309,7 @@ public class AiService {
     @Transactional
     public Dto.ChatResponse saveReply(UUID conversationId, ArchitectAssistant.Answer answer) {
         AiConversation conv = conversations.findById(conversationId).orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        conv.setLastMessageAt(Instant.now());
         AiMessage reply = new AiMessage();
         reply.setConversation(conv);
         reply.setRole("assistant");
@@ -320,9 +322,13 @@ public class AiService {
 
     @Transactional(readOnly = true)
     public List<Dto.ConversationDto> conversations() {
-        return conversations.findByUserIdOrderByUpdatedAtDesc(access.me().getId()).stream()
-                .map(c -> new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
-                        c.getProject() == null ? null : c.getProject().getName(), c.getUpdatedAt())).toList();
+        return conversations.listForUser(access.me().getId()).stream().map(this::conversationDto).toList();
+    }
+
+    private Dto.ConversationDto conversationDto(AiConversation c) {
+        Instant last = c.getLastMessageAt() != null ? c.getLastMessageAt() : c.getUpdatedAt();
+        return new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
+                c.getProject() == null ? null : c.getProject().getName(), last, c.isPinned());
     }
 
     @Transactional(readOnly = true)

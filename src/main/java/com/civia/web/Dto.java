@@ -121,7 +121,7 @@ public final class Dto {
 
     public record MessageDto(UUID id, String role, String content, String engine, Object sources, List<String> suggestions, Instant createdAt) {}
 
-    public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt) {}
+    public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt, boolean pinned) {}
 
     public record AnalysisDto(UUID id, String analysisType, String engine, String summary, Integer completeness,
                               UUID documentId, String documentName, Object result, Instant createdAt) {}
