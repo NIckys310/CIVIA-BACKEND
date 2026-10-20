@@ -183,6 +183,7 @@ public class LibraryController {
         return Map.of("deleted", true);
     }
 
+    @Operation(summary = "Buscar artículos y términos")
     @GetMapping("/search")
     @Transactional
     public Map<String, Object> search(@RequestParam String q) {
@@ -205,6 +206,7 @@ public class LibraryController {
     }
 
     /** Últimas búsquedas del usuario (sin repetir), para retomarlas. Nunca se muestran las de otras personas. */
+    @Operation(summary = "Mis búsquedas recientes")
     @GetMapping("/recent-searches")
     @Transactional(readOnly = true)
     public List<String> recentSearches() {
@@ -215,6 +217,7 @@ public class LibraryController {
                 .stream().limit(8).toList();
     }
 
+    @Operation(summary = "Glosario (filtra por texto o categoría)")
     @GetMapping("/terms")
     public List<TermDto> terms(@RequestParam(required = false) String q, @RequestParam(required = false) String category) {
         String folded = q == null ? "" : SearchIndex.fold(q);
@@ -225,6 +228,7 @@ public class LibraryController {
     }
 
     /** Una sola pregunta → respuesta compuesta con citas a la biblioteca. */
+    @Operation(summary = "Pregunta única con respuesta citada")
     @PostMapping("/ask")
     public ArchitectAssistant.Answer ask(@RequestBody AskRequest req) {
         access.me();
