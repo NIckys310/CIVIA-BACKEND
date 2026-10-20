@@ -122,4 +122,13 @@ class CopilotStreamTest {
                         .content("{\"conversationId\":\"" + conversationId + "\",\"message\":\"muéstrame todo\"}"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void streamRejectsMessagesAboveTheLengthLimit() throws Exception {
+        String auth = token("largo@civia.test");
+        String huge = "a".repeat(12_001);
+        mvc.perform(post("/api/v1/ai/chat/stream").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"message\":\"" + huge + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
 }
