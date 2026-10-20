@@ -114,21 +114,25 @@ public class AiController {
         return Map.of("deleted", ai.deleteAllConversations());
     }
 
+    @Operation(summary = "Analizar un plano")
     @PostMapping("/documents/{docId}/analyze")
     public AnalysisDto analyzePlan(@PathVariable UUID docId, @RequestBody(required = false) Map<String, String> body) {
         return ai.analyzePlan(docId, body == null ? null : body.get("notes"));
     }
 
+    @Operation(summary = "Analizar un modelo 3D")
     @PostMapping("/models/{docId}/analyze")
     public AnalysisDto analyzeModel(@PathVariable UUID docId, @RequestBody ModelAnalyzer.ModelStats stats) {
         return ai.analyzeModel(docId, stats);
     }
 
+    @Operation(summary = "Volumetría máxima de un lote")
     @PostMapping("/massing")
     public MassingAdvisor.MassingProposal massing(@RequestBody MassingAdvisor.MassingInput input) {
         return ai.massing(input);
     }
 
+    @Operation(summary = "Detalle de un análisis")
     @GetMapping("/analyses/{id}")
     public AnalysisDto analysis(@PathVariable UUID id) {
         return ai.analysis(id);
