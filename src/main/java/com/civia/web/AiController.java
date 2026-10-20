@@ -72,6 +72,12 @@ public class AiController {
         return Map.of("deleted", true);
     }
 
+    /** Borra todo el historial del Copilot del usuario. */
+    @DeleteMapping("/conversations")
+    public Map<String, Object> deleteAllConversations() {
+        return Map.of("deleted", ai.deleteAllConversations());
+    }
+
     @PostMapping("/documents/{docId}/analyze")
     public AnalysisDto analyzePlan(@PathVariable UUID docId, @RequestBody(required = false) Map<String, String> body) {
         return ai.analyzePlan(docId, body == null ? null : body.get("notes"));
