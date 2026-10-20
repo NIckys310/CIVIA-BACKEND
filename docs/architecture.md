@@ -27,8 +27,8 @@ Navegador (PWA)                      CIVIA-BACKEND (Spring Boot, Java 21)       
 | `#/projects/:id/(overview·files·tasks·budget·spaces·team·log)` | Proyecto: revisión IA, archivos y versiones, kanban, presupuesto con AIU, programa, equipo, bitácora |
 | `#/viewer/:doc` · `#/massing/:project` | Visor 3D (GLB/glTF/OBJ/STL): medir, notas, sección, sol, análisis IA · volumetría con IA exportable a GLB |
 | `#/camera/:project` | Cámara: foto de obra, foto de plano (con análisis), medición con referencia |
-| `#/copilot/:conv` | Chat con contexto de proyecto y planos adjuntos |
-| `#/library/…` | Biblioteca: pregunta única, categorías, artículos, glosario, favoritos |
+| `#/copilot/:conv` | Chat en tiempo real (streaming) con contexto de proyecto y planos adjuntos; historial con búsqueda, fijadas, exportar y valorar |
+| `#/library/…` | Biblioteca de ingeniería civil (19 categorías): artículo del día, pregunta única, categorías, artículos propios, glosario por categoría, favoritos |
 | `#/profile` | Perfil, contraseña, verificación en dos pasos, sesiones, historial |
 
 ## Rendimiento al entrar

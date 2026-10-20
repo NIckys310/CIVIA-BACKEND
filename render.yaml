@@ -25,5 +25,8 @@ services:
         value: https://civia-black.vercel.app
       - key: CIVIA_CORS_ORIGINS
         value: https://civia-black.vercel.app
+      # Clave de la API de Claude (console.anthropic.com). Sin ella, el Copilot usa el motor local.
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: CIVIA_AI_EFFORT
+        value: high
