@@ -114,6 +114,12 @@ public class AiController {
         return Map.of("deleted", ai.deleteAllConversations());
     }
 
+    @Operation(summary = "Resumen de mi uso del Copilot")
+    @GetMapping("/usage")
+    public Map<String, Object> usage() {
+        return ai.usage();
+    }
+
     @Operation(summary = "Analizar un plano")
     @PostMapping("/documents/{docId}/analyze")
     public AnalysisDto analyzePlan(@PathVariable UUID docId, @RequestBody(required = false) Map<String, String> body) {
