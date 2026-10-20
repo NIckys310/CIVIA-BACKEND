@@ -54,7 +54,8 @@ public class LibraryController {
     public void loadCustomArticles() {
         List<LibraryArticle> all = custom.findAll();
         customSlugs = new HashSet<>(all.stream().map(LibraryArticle::getSlug).toList());
-        if (!all.isEmpty()) ai.extendLibrary(all.stream().map(LibraryController::toKb).toList());
+        // Siempre se reconstruye: así un artículo borrado también sale de la búsqueda.
+        ai.extendLibrary(all.stream().map(LibraryController::toKb).toList());
     }
 
     private static KnowledgeBase.Article toKb(LibraryArticle a) {
