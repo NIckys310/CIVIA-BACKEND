@@ -72,6 +72,21 @@ public class AiController {
         return Map.of("deleted", true);
     }
 
+    /** Nueva respuesta para la última pregunta, en streaming. */
+    @PostMapping(value = "/conversations/{id}/regenerate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<SseEmitter> regenerate(@PathVariable UUID id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(stream.regenerate(id));
+    }
+
+    /** Valora una respuesta del Copilot ("up", "down" o null). */
+    @PostMapping("/messages/{id}/feedback")
+    public MessageDto feedback(@PathVariable UUID id, @RequestBody FeedbackRequest req) {
+        return ai.feedback(id, req.value());
+    }
+
     /** La conversación en Markdown (descarga). */
     @GetMapping(value = "/conversations/{id}/export", produces = "text/markdown;charset=UTF-8")
     public ResponseEntity<String> exportConversation(@PathVariable UUID id) {
