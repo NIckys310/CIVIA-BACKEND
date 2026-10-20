@@ -36,7 +36,15 @@ public class CopilotStreamService {
 
     /** Valida y guarda la pregunta en el hilo de la petición (con el usuario en sesión) y responde en segundo plano. */
     public SseEmitter stream(Dto.ChatRequest req) {
-        AiService.PreparedChat chat = ai.prepareChat(req);
+        return stream(ai.prepareChat(req));
+    }
+
+    /** Nueva respuesta para la última pregunta de la conversación. */
+    public SseEmitter regenerate(java.util.UUID conversationId) {
+        return stream(ai.prepareRegenerate(conversationId));
+    }
+
+    private SseEmitter stream(AiService.PreparedChat chat) {
         SseEmitter emitter = new SseEmitter(TIMEOUT.toMillis());
         AtomicBoolean open = new AtomicBoolean(true);
         emitter.onCompletion(() -> open.set(false));
