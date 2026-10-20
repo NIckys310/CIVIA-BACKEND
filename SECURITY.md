@@ -23,4 +23,12 @@ CIVIA trata datos personales conforme a la **Ley 1581 de 2012 (Habeas Data, Colo
 Los planos de los clientes son propiedad intelectual confidencial: un incidente que los
 exponga se trata como severidad crítica.
 
+## Inteligencia artificial
+
+- Las preguntas al Copilot, a la biblioteca y los análisis con Claude comparten una cuota por
+  usuario (`CIVIA_AI_REQUESTS_PER_MINUTE`) para proteger el costo de la API.
+- `ANTHROPIC_API_KEY` solo vive en las variables de entorno del servidor (Render); nunca en el
+  repositorio ni en la interfaz.
+- El contenido de planos y documentos se trata como dato, nunca como instrucción.
+
 Ver también [`docs/security/threat-model.md`](docs/security/threat-model.md).
