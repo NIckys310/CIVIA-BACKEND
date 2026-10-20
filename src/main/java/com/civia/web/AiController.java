@@ -138,6 +138,7 @@ public class AiController {
         return ai.analysis(id);
     }
 
+    @Operation(summary = "Marcar un hallazgo como resuelto")
     @PatchMapping("/analyses/{id}/findings/{checkId}")
     public Map<String, Object> resolveFinding(@PathVariable UUID id, @PathVariable String checkId, @RequestBody Map<String, Boolean> body) {
         boolean resolved = Boolean.TRUE.equals(body.get("resolved"));
@@ -145,11 +146,13 @@ public class AiController {
         return Map.of("resolved", resolved);
     }
 
+    @Operation(summary = "Análisis de un proyecto")
     @GetMapping("/projects/{projectId}/analyses")
     public List<AnalysisDto> projectAnalyses(@PathVariable UUID projectId) {
         return ai.projectAnalyses(projectId);
     }
 
+    @Operation(summary = "Qué le falta al proyecto")
     @GetMapping("/projects/{projectId}/recommendations")
     public List<Recommendation> recommendations(@PathVariable UUID projectId) {
         return ai.recommendations(projectId);
