@@ -381,6 +381,21 @@ public class AiService {
         return message(m);
     }
 
+    /** La conversación en Markdown, para guardarla o compartirla. */
+    @Transactional(readOnly = true)
+    public String exportConversation(UUID id) {
+        AiConversation c = ownConversation(id);
+        StringBuilder md = new StringBuilder("# ").append(c.getTitle() == null ? "Conversación con CIVIA Copilot" : c.getTitle()).append("\n\n");
+        if (c.getProject() != null) md.append("Proyecto: **").append(c.getProject().getName()).append("**\n\n");
+        for (AiMessage m : messages.findByConversationIdOrderByCreatedAtAsc(c.getId())) {
+            md.append("assistant".equals(m.getRole()) ? "## CIVIA Copilot" : "## Tú");
+            if (m.getCreatedAt() != null) md.append(" · ").append(m.getCreatedAt().toString().substring(0, 16).replace('T', ' ')).append(" UTC");
+            md.append("\n\n").append(m.getContent().strip()).append("\n\n");
+        }
+        md.append("---\n_Exportado desde CIVIA AI. Toda salida de CIVIA requiere revisión del profesional responsable._\n");
+        return md.toString();
+    }
+
     @Transactional
     public void deleteConversation(UUID id) {
         AiConversation c = ownConversation(id);
