@@ -162,6 +162,15 @@ public class LibraryController {
         return summary(toKb(a));
     }
 
+    @DeleteMapping("/articles/{slug}")
+    @Transactional
+    public Map<String, Object> delete(@PathVariable String slug) {
+        custom.delete(ownArticle(slug));
+        custom.flush();
+        loadCustomArticles();
+        return Map.of("deleted", true);
+    }
+
     @GetMapping("/search")
     @Transactional
     public Map<String, Object> search(@RequestParam String q) {
