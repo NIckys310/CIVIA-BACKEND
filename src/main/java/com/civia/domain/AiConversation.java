@@ -26,4 +26,7 @@ public class AiConversation extends BaseEntity {
 
     /** Fecha del último mensaje: ordena la lista de conversaciones. */
     private Instant lastMessageAt;
+
+    /** Conversación fijada arriba de la lista. */
+    @Column(nullable = false, columnDefinition = "boolean default false") private boolean pinned;
 }
