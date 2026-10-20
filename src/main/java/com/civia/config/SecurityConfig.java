@@ -2,6 +2,7 @@ package com.civia.config;
 
 import com.civia.security.KeyMaterial;
 import com.civia.security.RateLimitFilter;
+import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +60,8 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(a -> a
+                        // Segunda pasada de una respuesta en streaming (SSE): la petición original ya se autorizó.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/password/check",
                                 "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/password-policy", "/api/v1/status").permitAll()
