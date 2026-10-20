@@ -123,6 +123,9 @@ public final class Dto {
 
     public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt, boolean pinned) {}
 
+    /** Cambios en una conversación: título y/o fijada. Los campos nulos no cambian. */
+    public record ConversationUpdate(String title, Boolean pinned) {}
+
     public record AnalysisDto(UUID id, String analysisType, String engine, String summary, Integer completeness,
                               UUID documentId, String documentName, Object result, Instant createdAt) {}
 

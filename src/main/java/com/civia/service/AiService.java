@@ -353,6 +353,18 @@ public class AiService {
     }
 
     @Transactional
+    public Dto.ConversationDto updateConversation(UUID id, Dto.ConversationUpdate req) {
+        AiConversation c = ownConversation(id);
+        if (req.title() != null) {
+            String title = req.title().strip().replaceAll("\\s+", " ");
+            if (title.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El título no puede quedar vacío.");
+            c.setTitle(title.length() > 120 ? title.substring(0, 120) : title);
+        }
+        if (req.pinned() != null) c.setPinned(req.pinned());
+        return conversationDto(c);
+    }
+
+    @Transactional
     public void deleteConversation(UUID id) {
         AiConversation c = ownConversation(id);
         messages.deleteByConversationId(c.getId());
