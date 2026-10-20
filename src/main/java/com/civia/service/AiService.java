@@ -54,6 +54,9 @@ public class AiService {
     @Value("${civia.ai.history-turns:40}")
     private int historyTurns = 40;
 
+    @Value("${civia.ai.max-message-chars:12000}")
+    private int maxMessageChars = 12_000;
+
     public AiService(CiviaAi ai, ObjectMapper json, ProjectAccess access, DocumentRepository documents,
                      AiAnalysisRepository analyses, AiFindingRepository findings, AiConversationRepository conversations,
                      AiMessageRepository messages, TaskRepository tasks, BudgetItemRepository budgetItems,
@@ -239,6 +242,10 @@ public class AiService {
     public PreparedChat prepareChat(Dto.ChatRequest req) {
         if (req.message() == null || req.message().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escribe un mensaje.");
+        }
+        if (req.message().length() > maxMessageChars) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El mensaje es muy largo (máximo " + maxMessageChars + " caracteres). Divídelo en partes.");
         }
         User me = access.me();
         AiConversation conv;

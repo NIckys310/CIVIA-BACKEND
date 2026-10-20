@@ -94,6 +94,8 @@ civia:
     model: ${CIVIA_AI_MODEL:claude-opus-5-5}
     # Turnos previos de la conversación que recibe el Copilot (memoria de la charla).
     history-turns: ${CIVIA_AI_HISTORY_TURNS:40}
+    # Longitud máxima de un mensaje al Copilot (caracteres).
+    max-message-chars: ${CIVIA_AI_MAX_MESSAGE_CHARS:12000}
 
 logging:
   level:
