@@ -11,6 +11,7 @@ import com.civia.domain.User;
 import com.civia.repo.LibraryArticleRepository;
 import com.civia.repo.LibraryFavoriteRepository;
 import com.civia.repo.LibrarySearchLogRepository;
+import com.civia.service.AiQuota;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,15 +39,17 @@ public class LibraryController {
     private final LibraryArticleRepository custom;
     private final LibraryFavoriteRepository favorites;
     private final LibrarySearchLogRepository searches;
+    private final AiQuota quota;
     private volatile Set<String> customSlugs = Set.of();
 
     public LibraryController(CiviaAi ai, ProjectAccess access, LibraryArticleRepository custom,
-                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches) {
+                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches, AiQuota quota) {
         this.ai = ai;
         this.access = access;
         this.custom = custom;
         this.favorites = favorites;
         this.searches = searches;
+        this.quota = quota;
     }
 
     /** Suma a la búsqueda los artículos creados por los usuarios. */
@@ -231,7 +234,11 @@ public class LibraryController {
     @Operation(summary = "Pregunta única con respuesta citada")
     @PostMapping("/ask")
     public ArchitectAssistant.Answer ask(@RequestBody AskRequest req) {
-        access.me();
+        // Con Claude activo esta pregunta también tiene costo: comparte la cuota del Copilot.
+        quota.acquire(access.me().getId());
+        if (req.question() != null && req.question().length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La pregunta es muy larga (máximo 2000 caracteres).");
+        }
         return ai.assistant().ask(req.question(), List.of(), null, List.of());
     }
 
