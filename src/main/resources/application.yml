@@ -96,6 +96,8 @@ civia:
     history-turns: ${CIVIA_AI_HISTORY_TURNS:40}
     # Longitud máxima de un mensaje al Copilot (caracteres).
     max-message-chars: ${CIVIA_AI_MAX_MESSAGE_CHARS:12000}
+    # Preguntas al Copilot por usuario y por minuto (protege el costo de la API de Claude).
+    requests-per-minute: ${CIVIA_AI_REQUESTS_PER_MINUTE:20}
 
 logging:
   level:

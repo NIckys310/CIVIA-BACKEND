@@ -50,6 +50,7 @@ public class AiService {
     private final RoomRepository rooms;
     private final StorageService storage;
     private final AuditService audit;
+    private final AiQuota quota;
 
     @Value("${civia.ai.history-turns:40}")
     private int historyTurns = 40;
@@ -60,7 +61,8 @@ public class AiService {
     public AiService(CiviaAi ai, ObjectMapper json, ProjectAccess access, DocumentRepository documents,
                      AiAnalysisRepository analyses, AiFindingRepository findings, AiConversationRepository conversations,
                      AiMessageRepository messages, TaskRepository tasks, BudgetItemRepository budgetItems,
-                     ProjectMemberRepository members, RoomRepository rooms, StorageService storage, AuditService audit) {
+                     ProjectMemberRepository members, RoomRepository rooms, StorageService storage, AuditService audit,
+                     AiQuota quota) {
         this.ai = ai;
         this.json = json;
         this.access = access;
@@ -75,6 +77,7 @@ public class AiService {
         this.rooms = rooms;
         this.storage = storage;
         this.audit = audit;
+        this.quota = quota;
     }
 
     public CiviaAi engine() {
@@ -248,6 +251,7 @@ public class AiService {
                     "El mensaje es muy largo (máximo " + maxMessageChars + " caracteres). Divídelo en partes.");
         }
         User me = access.me();
+        quota.acquire(me.getId());
         AiConversation conv;
         if (req.conversationId() != null) {
             conv = conversations.findById(req.conversationId()).filter(c -> c.getUser().getId().equals(me.getId()))
