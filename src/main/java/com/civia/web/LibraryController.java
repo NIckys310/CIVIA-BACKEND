@@ -78,6 +78,14 @@ public class LibraryController {
         return summary(all.get(index));
     }
 
+    /** Tamaño de la biblioteca. */
+    @GetMapping("/stats")
+    public Map<String, Object> stats() {
+        KnowledgeBase kb = ai.library();
+        return Map.of("categories", kb.categories().size(), "articles", kb.articles().size(),
+                "terms", kb.terms().size(), "custom", customSlugs.size());
+    }
+
     @GetMapping("/categories")
     public List<CategoryDto> categories() {
         KnowledgeBase kb = ai.library();
