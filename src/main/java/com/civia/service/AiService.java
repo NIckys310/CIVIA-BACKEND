@@ -403,6 +403,17 @@ public class AiService {
         conversations.delete(c);
     }
 
+    /** Borra todo el historial del Copilot del usuario en sesión. Devuelve cuántas conversaciones se borraron. */
+    @Transactional
+    public int deleteAllConversations() {
+        List<AiConversation> mine = conversations.listForUser(access.me().getId());
+        for (AiConversation c : mine) {
+            messages.deleteByConversationId(c.getId());
+            conversations.delete(c);
+        }
+        return mine.size();
+    }
+
     // ------------------------------------------------------------------ utilidades
 
     private Dto.MessageDto message(AiMessage m) {
