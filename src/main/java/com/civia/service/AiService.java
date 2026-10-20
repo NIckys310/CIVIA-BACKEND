@@ -219,8 +219,20 @@ public class AiService {
 
     // ------------------------------------------------------------------ copiloto
 
+    /** Pregunta lista para el Copilot: la conversación ya existe y el mensaje del usuario quedó guardado. */
+    public record PreparedChat(UUID conversationId, String message, List<LlmProvider.Turn> history,
+                               ArchitectAssistant.ProjectContext project, List<LlmProvider.Attachment> attachments) {}
+
     @Transactional
     public Dto.ChatResponse chat(Dto.ChatRequest req) {
+        PreparedChat chat = prepareChat(req);
+        ArchitectAssistant.Answer answer = ai.assistant().ask(chat.message(), chat.history(), chat.project(), chat.attachments());
+        return saveReply(chat.conversationId(), answer);
+    }
+
+    /** Valida el acceso, crea o recupera la conversación y guarda el mensaje del usuario. */
+    @Transactional
+    public PreparedChat prepareChat(Dto.ChatRequest req) {
         if (req.message() == null || req.message().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escribe un mensaje.");
         }
@@ -274,8 +286,13 @@ public class AiService {
         userMsg.setRole("user");
         userMsg.setContent(req.message());
         messages.save(userMsg);
+        return new PreparedChat(conv.getId(), req.message(), history, ctx, attachments);
+    }
 
-        ArchitectAssistant.Answer answer = ai.assistant().ask(req.message(), history, ctx, attachments);
+    /** Guarda la respuesta del Copilot. No depende del usuario en sesión: sirve también en streaming. */
+    @Transactional
+    public Dto.ChatResponse saveReply(UUID conversationId, ArchitectAssistant.Answer answer) {
+        AiConversation conv = conversations.findById(conversationId).orElseThrow(() -> ProjectAccess.notFound("Conversación"));
         AiMessage reply = new AiMessage();
         reply.setConversation(conv);
         reply.setRole("assistant");
