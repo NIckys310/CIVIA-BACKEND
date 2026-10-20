@@ -235,6 +235,7 @@ public class LibraryController {
         return ai.assistant().ask(req.question(), List.of(), null, List.of());
     }
 
+    @Operation(summary = "Mis artículos favoritos")
     @GetMapping("/favorites")
     @Transactional(readOnly = true)
     public List<ArticleSummary> favorites() {
@@ -243,6 +244,7 @@ public class LibraryController {
                 .map(f -> kb.article(f.getSlug()).orElse(null)).filter(a -> a != null).map(this::summary).toList();
     }
 
+    @Operation(summary = "Marcar como favorito")
     @PutMapping("/favorites/{slug}")
     @Transactional
     public Map<String, Object> addFavorite(@PathVariable String slug) {
@@ -257,6 +259,7 @@ public class LibraryController {
         return Map.of("favorite", true);
     }
 
+    @Operation(summary = "Quitar de favoritos")
     @DeleteMapping("/favorites/{slug}")
     @Transactional
     public Map<String, Object> removeFavorite(@PathVariable String slug) {
