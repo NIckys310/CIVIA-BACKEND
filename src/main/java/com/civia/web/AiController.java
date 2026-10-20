@@ -51,8 +51,8 @@ public class AiController {
     }
 
     @GetMapping("/conversations")
-    public List<ConversationDto> conversations() {
-        return ai.conversations();
+    public List<ConversationDto> conversations(@RequestParam(required = false) String q) {
+        return q == null || q.isBlank() ? ai.conversations() : ai.searchConversations(q);
     }
 
     @GetMapping("/conversations/{id}")
