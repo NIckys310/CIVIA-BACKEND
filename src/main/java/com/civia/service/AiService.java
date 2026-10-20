@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,9 @@ public class AiService {
     private final RoomRepository rooms;
     private final StorageService storage;
     private final AuditService audit;
+
+    @Value("${civia.ai.history-turns:40}")
+    private int historyTurns = 40;
 
     public AiService(CiviaAi ai, ObjectMapper json, ProjectAccess access, DocumentRepository documents,
                      AiAnalysisRepository analyses, AiFindingRepository findings, AiConversationRepository conversations,
@@ -257,7 +261,7 @@ public class AiService {
 
         List<LlmProvider.Turn> history = new ArrayList<>();
         List<AiMessage> previous = messages.findByConversationIdOrderByCreatedAtAsc(conv.getId());
-        for (AiMessage m : previous.subList(Math.max(0, previous.size() - 20), previous.size())) {
+        for (AiMessage m : previous.subList(Math.max(0, previous.size() - historyTurns), previous.size())) {
             history.add(new LlmProvider.Turn(m.getRole(), m.getContent()));
         }
 
