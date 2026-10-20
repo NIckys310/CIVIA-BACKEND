@@ -334,6 +334,12 @@ public class AiService {
         return conversations.searchForUser(access.me().getId(), pattern).stream().map(this::conversationDto).toList();
     }
 
+    /** Conversación del usuario en sesión; si es de otra persona responde 404. */
+    private AiConversation ownConversation(UUID id) {
+        return conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+    }
+
     private Dto.ConversationDto conversationDto(AiConversation c) {
         Instant last = c.getLastMessageAt() != null ? c.getLastMessageAt() : c.getUpdatedAt();
         return new Dto.ConversationDto(c.getId(), c.getTitle(), c.getProject() == null ? null : c.getProject().getId(),
@@ -342,15 +348,13 @@ public class AiService {
 
     @Transactional(readOnly = true)
     public List<Dto.MessageDto> conversation(UUID id) {
-        AiConversation c = conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
-                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        AiConversation c = ownConversation(id);
         return messages.findByConversationIdOrderByCreatedAtAsc(c.getId()).stream().map(this::message).toList();
     }
 
     @Transactional
     public void deleteConversation(UUID id) {
-        AiConversation c = conversations.findById(id).filter(x -> x.getUser().getId().equals(access.me().getId()))
-                .orElseThrow(() -> ProjectAccess.notFound("Conversación"));
+        AiConversation c = ownConversation(id);
         messages.deleteByConversationId(c.getId());
         conversations.delete(c);
     }
