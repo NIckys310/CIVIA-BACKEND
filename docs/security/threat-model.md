@@ -33,6 +33,8 @@ Estándares de referencia: OWASP ASVS 5.0 (L2), API Security Top 10, Top 10 for 
 | I | Datos sensibles en reposo | Teléfonos, matrícula, contactos y semillas MFA cifrados con AES-256-GCM | `EncryptedStringConverter` |
 | I | Caché de datos privados | `Cache-Control: private` en archivos y `no-store` en tokens; el service worker nunca cachea `/api` | `web/sw.js` |
 | I | Prompt injection en planos | Delimitadores aleatorios, contenido tratado como dato, salida sin veredictos | `SafetyTest` (CIVIA-IA) |
+| D | Abuso del Copilot (costo de la API de Claude) | Cuota por usuario (`CIVIA_AI_REQUESTS_PER_MINUTE`, 20/min), mensajes de máx. 12 000 caracteres, memoria acotada (`CIVIA_AI_HISTORY_TURNS`), timeout del streaming de 5 min | `AiQuotaTest`, `CopilotStreamTest` |
+| I | Ver o continuar conversaciones ajenas | Toda operación del historial (leer, renombrar, valorar, exportar, regenerar, borrar) valida que la conversación sea del usuario; si no, 404 | `CopilotStreamTest`, `CopilotConversationsTest` |
 | **D** Denegación | Abuso de la API | 900 peticiones/min por IP | `RateLimitFilter` |
 | **E** Elevación | Lector que edita | Roles por proyecto (OWNER, EDITOR, VIEWER) comprobados en el servidor | `ProjectAccess.edit/own` |
 
