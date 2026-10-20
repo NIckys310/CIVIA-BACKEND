@@ -60,6 +60,12 @@ public class AiController {
         return ai.conversation(id);
     }
 
+    /** Renombra o fija una conversación. */
+    @PatchMapping("/conversations/{id}")
+    public ConversationDto updateConversation(@PathVariable UUID id, @RequestBody ConversationUpdate req) {
+        return ai.updateConversation(id, req);
+    }
+
     @DeleteMapping("/conversations/{id}")
     public Map<String, Object> deleteConversation(@PathVariable UUID id) {
         ai.deleteConversation(id);
