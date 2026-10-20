@@ -40,8 +40,8 @@ Documentación interactiva: `http://localhost:8080/api/docs` (OpenAPI en `/api/v
 | `/api/v1/auth` | **CIVIA Auth**: `register`, `token` (grant `password` / `refresh_token`), `revoke`, `user`, `password`, `sessions`, `mfa/*`, `security-events` |
 | `/api/v1/projects` | Proyectos, miembros, fases, niveles, espacios, tareas, comentarios, bitácora, presupuesto |
 | `/api/v1/projects/{id}/documents` · `/api/v1/documents` | Subida de planos, modelos 3D, fotos y documentos; versiones, vista previa, mediciones, notas 3D |
-| `/api/v1/ai` | Copilot (`chat`), análisis de planos y modelos, volumetría, recomendaciones del proyecto |
-| `/api/v1/library` | Categorías, artículos, búsqueda, glosario, pregunta única (`ask`), favoritos |
+| `/api/v1/ai` | Copilot (`chat` y `chat/stream` en tiempo real), historial (buscar, renombrar, fijar, exportar, regenerar, valorar, borrar), análisis de planos y modelos, volumetría, recomendaciones del proyecto |
+| `/api/v1/library` | 19 categorías de ingeniería civil y arquitectura, artículos (propios editables), artículo del día, estadísticas, búsqueda y búsquedas recientes, glosario por categoría, pregunta única (`ask`), favoritos |
 | `/api/v1/dashboard`, `/notifications`, `/clients` | Panel, notificaciones y clientes |
 
 ## Seguridad
