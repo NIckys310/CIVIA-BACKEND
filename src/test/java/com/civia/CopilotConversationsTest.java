@@ -162,4 +162,39 @@ class CopilotConversationsTest {
         mvc.perform(get("/api/v1/ai/conversations").header("Authorization", mine)).andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/v1/ai/conversations").header("Authorization", theirs)).andExpect(jsonPath("$.length()").value(1));
     }
+
+    @Test
+    void usageCountsQuestionsAnswersAndRatings() throws Exception {
+        String auth = token("uso@civia.test");
+        JsonNode reply = ask(auth, "¿Qué es un talud?");
+        ask(auth, "¿Qué es una cercha?");
+        mvc.perform(post("/api/v1/ai/messages/" + reply.at("/message/id").asText() + "/feedback").header("Authorization", auth)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"value\":\"down\"}")).andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/ai/usage").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conversations").value(2))
+                .andExpect(jsonPath("$.questions").value(2))
+                .andExpect(jsonPath("$.answers").value(2))
+                .andExpect(jsonPath("$.notUseful").value(1))
+                .andExpect(jsonPath("$.useful").value(0));
+    }
+
+    @Test
+    void suggestionsWorkWithAndWithoutProject() throws Exception {
+        String auth = token("sugiere@civia.test");
+        mvc.perform(get("/api/v1/ai/suggestions").header("Authorization", auth))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(5));
+        MvcResult project = mvc.perform(post("/api/v1/projects").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Puente La Vega\"}"))
+                .andExpect(status().is2xxSuccessful()).andReturn();
+        String projectId = read(project).get("id").asText();
+        mvc.perform(get("/api/v1/ai/suggestions").param("projectId", projectId).header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*]", org.hamcrest.Matchers.hasItem("¿Qué le falta a Puente La Vega?")));
+
+        String other = token("ajeno-sugiere@civia.test");
+        mvc.perform(get("/api/v1/ai/suggestions").param("projectId", projectId).header("Authorization", other))
+                .andExpect(status().isNotFound());
+    }
 }
