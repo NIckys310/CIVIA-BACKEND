@@ -23,4 +23,7 @@ public class AiConversation extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY) private Project project;
 
     @Column(columnDefinition = "text") private String title;
+
+    /** Fecha del último mensaje: ordena la lista de conversaciones. */
+    private Instant lastMessageAt;
 }
