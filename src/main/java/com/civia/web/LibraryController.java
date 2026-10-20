@@ -104,10 +104,13 @@ public class LibraryController {
     public ArticleDto article(@PathVariable String slug) {
         KnowledgeBase kb = ai.library();
         KnowledgeBase.Article a = kb.article(slug).orElseThrow(() -> ProjectAccess.notFound("Artículo"));
-        boolean fav = favorites.findByUserIdAndSlug(access.me().getId(), slug).isPresent();
+        User me = access.me();
+        boolean fav = favorites.findByUserIdAndSlug(me.getId(), slug).isPresent();
+        boolean mine = customSlugs.contains(slug) && custom.findBySlug(slug)
+                .map(x -> x.getAuthor() != null && x.getAuthor().getId().equals(me.getId())).orElse(false);
         List<ArticleSummary> related = kb.searchArticles(a.title() + " " + String.join(" ", a.tags()), 6).stream()
                 .filter(r -> !r.slug().equals(slug)).limit(4).map(this::summary).toList();
-        return new ArticleDto(a.slug(), a.category(), a.title(), a.summary(), a.tags(), a.body(), customSlugs.contains(slug), fav, related);
+        return new ArticleDto(a.slug(), a.category(), a.title(), a.summary(), a.tags(), a.body(), customSlugs.contains(slug), fav, related, mine);
     }
 
     @PostMapping("/articles")

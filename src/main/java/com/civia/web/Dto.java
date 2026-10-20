@@ -142,7 +142,7 @@ public final class Dto {
     public record ArticleSummary(String slug, String category, String title, String summary, List<String> tags, boolean custom) {}
 
     public record ArticleDto(String slug, String category, String title, String summary, List<String> tags, String body,
-                             boolean custom, boolean favorite, List<ArticleSummary> related) {}
+                             boolean custom, boolean favorite, List<ArticleSummary> related, boolean mine) {}
 
     public record ArticleRequest(String category, String title, String summary, String body, List<String> tags) {}
 
