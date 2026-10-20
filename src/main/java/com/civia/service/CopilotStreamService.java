@@ -10,6 +10,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,13 +26,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class CopilotStreamService {
 
     private static final Logger LOG = Logger.getLogger(CopilotStreamService.class.getName());
-    static final Duration TIMEOUT = Duration.ofMinutes(5);
 
     private final AiService ai;
+    private final Duration timeout;
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
 
-    public CopilotStreamService(AiService ai) {
+    public CopilotStreamService(AiService ai, @Value("${civia.ai.stream-timeout-minutes:5}") long timeoutMinutes) {
         this.ai = ai;
+        this.timeout = Duration.ofMinutes(Math.max(1, timeoutMinutes));
     }
 
     /** Valida y guarda la pregunta en el hilo de la petición (con el usuario en sesión) y responde en segundo plano. */
@@ -45,7 +47,7 @@ public class CopilotStreamService {
     }
 
     private SseEmitter stream(AiService.PreparedChat chat) {
-        SseEmitter emitter = new SseEmitter(TIMEOUT.toMillis());
+        SseEmitter emitter = new SseEmitter(timeout.toMillis());
         AtomicBoolean open = new AtomicBoolean(true);
         emitter.onCompletion(() -> open.set(false));
         emitter.onTimeout(() -> open.set(false));

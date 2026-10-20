@@ -98,6 +98,8 @@ civia:
     max-message-chars: ${CIVIA_AI_MAX_MESSAGE_CHARS:12000}
     # Preguntas al Copilot por usuario y por minuto (protege el costo de la API de Claude).
     requests-per-minute: ${CIVIA_AI_REQUESTS_PER_MINUTE:20}
+    # Tiempo máximo de una respuesta en streaming (minutos).
+    stream-timeout-minutes: ${CIVIA_AI_STREAM_TIMEOUT_MINUTES:5}
 
 logging:
   level:
