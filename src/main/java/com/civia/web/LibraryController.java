@@ -139,6 +139,29 @@ public class LibraryController {
         return summary(toKb(a));
     }
 
+    /** Artículo propio: solo quien lo escribió puede cambiarlo o borrarlo. Los de CIVIA no se editan. */
+    private LibraryArticle ownArticle(String slug) {
+        User me = access.me();
+        return custom.findBySlug(slug)
+                .filter(a -> a.getAuthor() != null && a.getAuthor().getId().equals(me.getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Artículo"));
+    }
+
+    @PutMapping("/articles/{slug}")
+    @Transactional
+    public ArticleSummary update(@PathVariable String slug, @RequestBody ArticleRequest req) {
+        LibraryArticle a = ownArticle(slug);
+        if (req.title() != null && !req.title().isBlank()) a.setTitle(req.title().strip());
+        if (req.body() != null && !req.body().isBlank()) a.setBody(req.body());
+        if (req.summary() != null) a.setSummary(req.summary());
+        if (req.tags() != null) a.setTagsCsv(String.join(",", req.tags()));
+        if (req.category() != null && ai.library().categories().stream().anyMatch(c -> c.id().equals(req.category()))) {
+            a.setCategory(req.category());
+        }
+        loadCustomArticles();
+        return summary(toKb(a));
+    }
+
     @GetMapping("/search")
     @Transactional
     public Map<String, Object> search(@RequestParam String q) {
