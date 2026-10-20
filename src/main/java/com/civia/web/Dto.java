@@ -119,7 +119,11 @@ public final class Dto {
 
     public record ChatResponse(UUID conversationId, MessageDto message) {}
 
-    public record MessageDto(UUID id, String role, String content, String engine, Object sources, List<String> suggestions, Instant createdAt) {}
+    public record MessageDto(UUID id, String role, String content, String engine, Object sources, List<String> suggestions,
+                             Instant createdAt, Integer feedback) {}
+
+    /** {@code value}: "up", "down" o null para quitar la valoración. */
+    public record FeedbackRequest(String value) {}
 
     public record ConversationDto(UUID id, String title, UUID projectId, String projectName, Instant updatedAt, boolean pinned) {}
 

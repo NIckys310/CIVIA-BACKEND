@@ -364,6 +364,23 @@ public class AiService {
         return conversationDto(c);
     }
 
+    /** Valoración de una respuesta del Copilot: "up", "down" o null para quitarla. */
+    @Transactional
+    public Dto.MessageDto feedback(UUID messageId, String value) {
+        AiMessage m = messages.findById(messageId)
+                .filter(x -> x.getConversation().getUser().getId().equals(access.me().getId()))
+                .orElseThrow(() -> ProjectAccess.notFound("Mensaje"));
+        if (!"assistant".equals(m.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se pueden valorar las respuestas del Copilot.");
+        }
+        m.setFeedback(value == null ? null : switch (value) {
+            case "up" -> 1;
+            case "down" -> -1;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valoración no válida: usa \"up\" o \"down\".");
+        });
+        return message(m);
+    }
+
     @Transactional
     public void deleteConversation(UUID id) {
         AiConversation c = ownConversation(id);
@@ -377,7 +394,8 @@ public class AiService {
         Map<String, Object> meta = m.getSourcesJson() == null ? Map.of() : readMap(m.getSourcesJson());
         @SuppressWarnings("unchecked")
         List<String> suggestions = (List<String>) meta.getOrDefault("suggestions", List.of());
-        return new Dto.MessageDto(m.getId(), m.getRole(), m.getContent(), m.getEngine(), meta.get("sources"), suggestions, m.getCreatedAt());
+        return new Dto.MessageDto(m.getId(), m.getRole(), m.getContent(), m.getEngine(), meta.get("sources"), suggestions, m.getCreatedAt(),
+                m.getFeedback());
     }
 
     private Dto.AnalysisDto toDto(AiAnalysis a, Object result) {
