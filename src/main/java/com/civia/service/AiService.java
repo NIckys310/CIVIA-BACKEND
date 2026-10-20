@@ -444,6 +444,19 @@ public class AiService {
         return mine.size();
     }
 
+    /** Resumen del uso del Copilot del usuario en sesión. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> usage() {
+        UUID me = access.me().getId();
+        return Map.of(
+                "conversations", conversations.listForUser(me).size(),
+                "questions", messages.countByConversation_User_IdAndRole(me, "user"),
+                "answers", messages.countByConversation_User_IdAndRole(me, "assistant"),
+                "useful", messages.countByConversation_User_IdAndFeedback(me, 1),
+                "notUseful", messages.countByConversation_User_IdAndFeedback(me, -1),
+                "engine", ai.engineName());
+    }
+
     // ------------------------------------------------------------------ utilidades
 
     private Dto.MessageDto message(AiMessage m) {
