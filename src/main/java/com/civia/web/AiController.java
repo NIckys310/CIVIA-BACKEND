@@ -4,12 +4,17 @@ import com.civia.ai.Recommendation;
 import com.civia.ai.models.MassingAdvisor;
 import com.civia.ai.models.ModelAnalyzer;
 import com.civia.service.AiService;
+import com.civia.service.CopilotStreamService;
 import com.civia.web.Dto.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /** CIVIA Copilot y análisis de planos, modelos 3D y proyectos. */
 @RestController
@@ -18,9 +23,11 @@ import org.springframework.web.bind.annotation.*;
 public class AiController {
 
     private final AiService ai;
+    private final CopilotStreamService stream;
 
-    public AiController(AiService ai) {
+    public AiController(AiService ai, CopilotStreamService stream) {
         this.ai = ai;
+        this.stream = stream;
     }
 
     @GetMapping("/status")
@@ -32,6 +39,15 @@ public class AiController {
     @PostMapping("/chat")
     public ChatResponse chat(@RequestBody ChatRequest req) {
         return ai.chat(req);
+    }
+
+    /** Igual que {@code /chat}, pero entrega la respuesta a medida que se escribe (Server-Sent Events). */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<SseEmitter> chatStream(@RequestBody ChatRequest req) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(stream.stream(req));
     }
 
     @GetMapping("/conversations")
