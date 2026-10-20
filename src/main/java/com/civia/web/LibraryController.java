@@ -157,6 +157,7 @@ public class LibraryController {
                 .orElseThrow(() -> ProjectAccess.notFound("Artículo"));
     }
 
+    @Operation(summary = "Editar un artículo propio")
     @PutMapping("/articles/{slug}")
     @Transactional
     public ArticleSummary update(@PathVariable String slug, @RequestBody ArticleRequest req) {
@@ -172,6 +173,7 @@ public class LibraryController {
         return summary(toKb(a));
     }
 
+    @Operation(summary = "Borrar un artículo propio")
     @DeleteMapping("/articles/{slug}")
     @Transactional
     public Map<String, Object> delete(@PathVariable String slug) {
