@@ -15,4 +15,8 @@ public interface AiMessageRepository extends JpaRepository<AiMessage, UUID> {
     List<AiMessage> findByConversationIdOrderByCreatedAtAsc(UUID conversationId);
 
     void deleteByConversationId(UUID conversationId);
+
+    long countByConversation_User_IdAndRole(UUID userId, String role);
+
+    long countByConversation_User_IdAndFeedback(UUID userId, Integer feedback);
 }
