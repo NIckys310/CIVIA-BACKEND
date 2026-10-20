@@ -91,6 +91,7 @@ public class AiService {
     public Dto.AnalysisDto analyzePlan(UUID documentId, String notes) {
         Document d = documents.findById(documentId).orElseThrow(() -> ProjectAccess.notFound("Archivo"));
         access.edit(d.getProject().getId());
+        if (ai.llmEnabled()) quota.acquire(access.me().getId());
         if (d.getKind() == DocumentKind.MODEL_3D) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los modelos 3D se analizan desde el visor 3D.");
         }
@@ -137,6 +138,7 @@ public class AiService {
     public Dto.AnalysisDto analyzeModel(UUID documentId, ModelAnalyzer.ModelStats stats) {
         Document d = documents.findById(documentId).orElseThrow(() -> ProjectAccess.notFound("Archivo"));
         Project p = access.edit(d.getProject().getId());
+        if (ai.llmEnabled()) quota.acquire(access.me().getId());
         ModelAnalyzer.ModelReport report = ai.models().analyze(stats, p.getDescription());
         AiAnalysis a = new AiAnalysis();
         a.setProject(p);
