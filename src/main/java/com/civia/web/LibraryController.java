@@ -97,12 +97,14 @@ public class LibraryController {
                 .map(c -> new CategoryDto(c.id(), c.name(), c.icon(), c.description(), kb.articlesIn(c.id()).size())).toList();
     }
 
+    @Operation(summary = "Artículos (opcionalmente de una categoría)")
     @GetMapping("/articles")
     public List<ArticleSummary> articles(@RequestParam(required = false) String category) {
         KnowledgeBase kb = ai.library();
         return (category == null ? kb.articles() : kb.articlesIn(category)).stream().map(this::summary).toList();
     }
 
+    @Operation(summary = "Leer un artículo con sus relacionados")
     @GetMapping("/articles/{slug}")
     @Transactional(readOnly = true)
     public ArticleDto article(@PathVariable String slug) {
@@ -117,6 +119,7 @@ public class LibraryController {
         return new ArticleDto(a.slug(), a.category(), a.title(), a.summary(), a.tags(), a.body(), customSlugs.contains(slug), fav, related, mine);
     }
 
+    @Operation(summary = "Aportar un artículo")
     @PostMapping("/articles")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
