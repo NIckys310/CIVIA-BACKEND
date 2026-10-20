@@ -114,6 +114,12 @@ public class AiController {
         return Map.of("deleted", ai.deleteAllConversations());
     }
 
+    @Operation(summary = "Preguntas sugeridas para el Copilot (según el proyecto, si se indica)")
+    @GetMapping("/suggestions")
+    public List<String> suggestions(@RequestParam(required = false) UUID projectId) {
+        return ai.suggestions(projectId);
+    }
+
     @Operation(summary = "Resumen de mi uso del Copilot")
     @GetMapping("/usage")
     public Map<String, Object> usage() {
