@@ -13,6 +13,7 @@ import com.civia.repo.LibraryFavoriteRepository;
 import com.civia.repo.LibrarySearchLogRepository;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -69,6 +70,7 @@ public class LibraryController {
     }
 
     /** Artículo destacado del día: cambia cada día y es el mismo para todos. */
+    @Operation(summary = "Artículo del día")
     @GetMapping("/featured")
     public ArticleSummary featured() {
         List<KnowledgeBase.Article> all = ai.library().articles().stream()
@@ -79,6 +81,7 @@ public class LibraryController {
     }
 
     /** Tamaño de la biblioteca. */
+    @Operation(summary = "Tamaño de la biblioteca")
     @GetMapping("/stats")
     public Map<String, Object> stats() {
         KnowledgeBase kb = ai.library();
@@ -86,6 +89,7 @@ public class LibraryController {
                 "terms", kb.terms().size(), "custom", customSlugs.size());
     }
 
+    @Operation(summary = "Categorías con su número de artículos")
     @GetMapping("/categories")
     public List<CategoryDto> categories() {
         KnowledgeBase kb = ai.library();
