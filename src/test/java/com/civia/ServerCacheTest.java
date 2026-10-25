@@ -50,14 +50,14 @@ class ServerCacheTest {
 
     private String token(String email) throws Exception {
         MvcResult r = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fullName\":\"Arquitecta Caché\",\"email\":\"" + email + "\",\"password\":\"Cache-Segura-2026\"}"))
+                        .content("{\"fullName\":\"Arquitecta Caché\",\"email\":\"" + email + "\",\"password\":\"Torres-Altas-2026\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return "Bearer " + json.readTree(r.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("access_token").asText();
     }
 
     @Test
     void libraryAndMassingAreCachedAndReported() throws Exception {
-        String auth = token("cache@civia.test");
+        String auth = token("estudio@civia.test");
         for (int i = 0; i < 3; i++) {
             mvc.perform(get("/api/v1/library/categories").header("Authorization", auth)).andExpect(status().isOk());
         }
