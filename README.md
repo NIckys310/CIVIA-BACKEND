@@ -5,6 +5,8 @@ de IA de [CIVIA-IA](https://github.com/NIckys310/CIVIA-IA). También sirve la in
 
 > Toda salida de CIVIA requiere revisión y aprobación del profesional responsable.
 
+**🌐 App en línea: [civia-black.vercel.app](https://civia-black.vercel.app)** · API: [civia-api-i71z.onrender.com](https://civia-api-i71z.onrender.com/api/v1/status)
+
 | Repositorio | Contenido | Tecnología |
 |---|---|---|
 | [CIVIA-FRONTEND](https://github.com/NIckys310/CIVIA-FRONTEND) | Interfaz web (PWA, escritorio y móvil) y su servidor | HTML/CSS/JS + Three.js · servidor Java 21 |
