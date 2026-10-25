@@ -28,5 +28,9 @@ services:
       # Clave de la API de Claude (console.anthropic.com). Sin ella, el Copilot usa el motor local.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # IA gratuita para el Copilot (console.groq.com → API Keys). Se pega a mano en Render.
+      # Respaldo opcional: CEREBRAS_API_KEY y OPENROUTER_API_KEY. Sin ninguna, motor local.
+      - key: GROQ_API_KEY
+        sync: false
       - key: CIVIA_AI_EFFORT
         value: high
