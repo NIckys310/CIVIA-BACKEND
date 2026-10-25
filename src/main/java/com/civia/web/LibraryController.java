@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1/library")
 @Tag(name = "Biblioteca")
 public class LibraryController {
+
+    /** Respuestas de la biblioteca iguales para todos; se vacía al crear, editar o borrar un artículo. */
+    public static final String LIBRARY_CACHE = "library";
 
     private final CiviaAi ai;
     private final ProjectAccess access;
@@ -86,6 +91,7 @@ public class LibraryController {
     /** Tamaño de la biblioteca. */
     @Operation(summary = "Tamaño de la biblioteca")
     @GetMapping("/stats")
+    @Cacheable(cacheNames = LIBRARY_CACHE, key = "'stats'")
     public Map<String, Object> stats() {
         KnowledgeBase kb = ai.library();
         return Map.of("categories", kb.categories().size(), "articles", kb.articles().size(),
@@ -94,6 +100,7 @@ public class LibraryController {
 
     @Operation(summary = "Categorías con su número de artículos")
     @GetMapping("/categories")
+    @Cacheable(cacheNames = LIBRARY_CACHE, key = "'categories'")
     public List<CategoryDto> categories() {
         KnowledgeBase kb = ai.library();
         return kb.categories().stream()
@@ -102,6 +109,7 @@ public class LibraryController {
 
     @Operation(summary = "Artículos (opcionalmente de una categoría)")
     @GetMapping("/articles")
+    @Cacheable(cacheNames = LIBRARY_CACHE, key = "'articles:' + #category")
     public List<ArticleSummary> articles(@RequestParam(required = false) String category) {
         KnowledgeBase kb = ai.library();
         return (category == null ? kb.articles() : kb.articlesIn(category)).stream().map(this::summary).toList();
@@ -124,6 +132,7 @@ public class LibraryController {
 
     @Operation(summary = "Aportar un artículo")
     @PostMapping("/articles")
+    @CacheEvict(cacheNames = LIBRARY_CACHE, allEntries = true)
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public ArticleSummary create(@RequestBody ArticleRequest req) {
@@ -162,6 +171,7 @@ public class LibraryController {
 
     @Operation(summary = "Editar un artículo propio")
     @PutMapping("/articles/{slug}")
+    @CacheEvict(cacheNames = LIBRARY_CACHE, allEntries = true)
     @Transactional
     public ArticleSummary update(@PathVariable String slug, @RequestBody ArticleRequest req) {
         LibraryArticle a = ownArticle(slug);
@@ -178,6 +188,7 @@ public class LibraryController {
 
     @Operation(summary = "Borrar un artículo propio")
     @DeleteMapping("/articles/{slug}")
+    @CacheEvict(cacheNames = LIBRARY_CACHE, allEntries = true)
     @Transactional
     public Map<String, Object> delete(@PathVariable String slug) {
         custom.delete(ownArticle(slug));
@@ -222,6 +233,7 @@ public class LibraryController {
 
     @Operation(summary = "Glosario (filtra por texto o categoría)")
     @GetMapping("/terms")
+    @Cacheable(cacheNames = LIBRARY_CACHE, key = "'terms:' + #q + ':' + #category")
     public List<TermDto> terms(@RequestParam(required = false) String q, @RequestParam(required = false) String category) {
         String folded = q == null ? "" : SearchIndex.fold(q);
         return ai.library().terms().stream()

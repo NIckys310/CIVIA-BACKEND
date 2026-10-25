@@ -153,6 +153,8 @@ public class AiService {
         return toDto(a, report);
     }
 
+    /** La volumetría solo depende de los datos de entrada: la misma consulta se responde desde la caché. */
+    @org.springframework.cache.annotation.Cacheable(cacheNames = "massing", key = "#input")
     public MassingAdvisor.MassingProposal massing(MassingAdvisor.MassingInput input) {
         return ai.massing().propose(input);
     }

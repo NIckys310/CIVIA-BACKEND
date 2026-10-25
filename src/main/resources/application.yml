@@ -29,7 +29,8 @@ spring:
   cache:
     type: caffeine
     caffeine:
-      spec: maximumSize=2000,expireAfterWrite=10m
+      # recordStats: aciertos y fallos visibles en /api/v1/system/cache (panel de Almacenamiento).
+      spec: maximumSize=2000,expireAfterWrite=10m,recordStats
   jackson:
     default-property-inclusion: non_null
     serialization:
