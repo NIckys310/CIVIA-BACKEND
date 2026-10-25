@@ -18,8 +18,11 @@ PostgreSQL en **Neon** y la interfaz pública en Vercel.
 1. **New → Blueprint** apuntando a CIVIA-BACKEND (usa `render.yaml`).
 2. En **Environment** define:
    - `DATABASE_URL`: la cadena de Neon del paso anterior.
-   - `ANTHROPIC_API_KEY` (opcional) para Claude: créala en https://console.anthropic.com
-     (Settings → API keys) y pégala solo en Render. Sin ella el Copilot usa el motor local.
+   - `GROQ_API_KEY` (gratis, recomendado): créala en https://console.groq.com → API Keys y pégala
+     solo en Render. El Copilot usa `openai/gpt-oss-120b` (cambia con `CIVIA_GROQ_MODEL`).
+     Respaldo opcional: `CEREBRAS_API_KEY` y `OPENROUTER_API_KEY`.
+   - `ANTHROPIC_API_KEY` (opcional, de pago) para Claude. Si está, va primero en la cadena.
+   - Sin ninguna clave, o si se agota la cuota gratuita del día, el Copilot usa el motor local.
    - `CIVIA_AI_EFFORT` (`high` por defecto) y `CIVIA_AI_REQUESTS_PER_MINUTE` (20) para equilibrar
      calidad y costo.
    - `CIVIA_JWT_SECRET` y `CIVIA_DATA_KEY` las genera Render. No las cambies: se cerrarían las
