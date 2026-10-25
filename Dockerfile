@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Imagen de CIVIA AI (API + interfaz) en un solo contenedor.
 # Compila la capa de IA (CIVIA-IA) y toma la interfaz (CIVIA-FRONTEND) desde GitHub.
 #   docker build -t civia .                                   (usa main)
@@ -8,10 +9,13 @@ FROM eclipse-temurin:21-jdk AS build
 # Rama de CIVIA-IA y CIVIA-FRONTEND a compilar. `main` siempre existe; las ramas de trabajo
 # se borran al fusionar su PR, así que no deben usarse como valor por defecto.
 ARG CIVIA_REF=main
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-RUN git clone --depth 1 --branch "$CIVIA_REF" https://github.com/NIckys310/CIVIA-IA.git CIVIA-IA \
- && git clone --depth 1 --branch "$CIVIA_REF" https://github.com/NIckys310/CIVIA-FRONTEND.git CIVIA-FRONTEND
+# ADD con una URL de git (y no `RUN git clone`): Docker consulta el commit actual de la rama en
+# cada build y solo reutiliza la caché si no cambió. Con `RUN git clone`, el texto del comando
+# nunca cambia y Render reutilizaba una copia vieja de CIVIA-IA: los deploys del 20/10 y del 24/10
+# fallaron por eso, aunque CIVIA-IA ya tenía los cambios en main.
+ADD https://github.com/NIckys310/CIVIA-IA.git#${CIVIA_REF} CIVIA-IA
+ADD https://github.com/NIckys310/CIVIA-FRONTEND.git#${CIVIA_REF} CIVIA-FRONTEND
 RUN cd CIVIA-IA && ./mvnw -B -q install -DskipTests
 COPY . CIVIA-BACKEND
 RUN cd CIVIA-BACKEND && ./mvnw -B -q package -DskipTests

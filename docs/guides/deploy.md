@@ -25,10 +25,10 @@ PostgreSQL en **Neon** y la interfaz pública en Vercel.
    - `CIVIA_JWT_SECRET` y `CIVIA_DATA_KEY` las genera Render. No las cambies: se cerrarían las
      sesiones y no se podrían leer los datos cifrados.
 3. El Dockerfile compila CIVIA-IA y toma la interfaz de CIVIA-FRONTEND (`CIVIA_REF`, por defecto `main`).
-   **Orden al publicar una versión:** fusiona primero CIVIA-IA (y CIVIA-FRONTEND) en `main` y
-   después CIVIA-BACKEND. Render compila en cuanto llega el commit del backend; si CIVIA-IA aún no
-   tiene los cambios, el build falla (pasó el 20/10/2026 con la versión 0.2.0). Si ocurre, basta con
-   **Manual Deploy → Deploy latest commit** cuando CIVIA-IA ya esté en `main`.
+   El `Dockerfile` toma CIVIA-IA y CIVIA-FRONTEND con `ADD <url de git>#rama`: Docker comprueba el
+   commit actual en cada build. Antes usaba `RUN git clone` y Render reutilizaba de su caché una copia
+   vieja de CIVIA-IA, por eso los deploys del 20/10 y del 24/10 fallaron al compilar aunque CIVIA-IA
+   ya estaba al día en `main`. Aun así, publica primero CIVIA-IA y después CIVIA-BACKEND.
 
 ## Disponibilidad en el plan gratuito
 
