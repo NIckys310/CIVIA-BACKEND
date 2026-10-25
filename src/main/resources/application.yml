@@ -114,6 +114,16 @@ spring:
   datasource:
     url: ${DATABASE_URL}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Neon (plan gratuito) suspende la base tras 5 min sin uso y cierra las conexiones abiertas.
+      # Pocas conexiones abiertas en el arranque (menos CPU en Render) y renovadas antes de que
+      # Neon las corte; si una conexión ya está cerrada, Hikari la valida y la reemplaza.
+      maximum-pool-size: ${DATABASE_POOL_SIZE:5}
+      minimum-idle: ${DATABASE_POOL_MIN_IDLE:1}
+      idle-timeout: 120000
+      max-lifetime: 600000
+      # Neon tarda unos segundos en reanudar una base suspendida.
+      connection-timeout: 30000
 civia:
   mail:
     # En producción el modo log nunca escribe enlaces de recuperación (darían acceso a la cuenta).
