@@ -5,7 +5,7 @@
 #   docker build -t civia --build-arg CIVIA_REF=develop .     (otra rama)
 #   docker run -p 8080:8080 -e ANTHROPIC_API_KEY=... civia
 
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 # Rama de CIVIA-IA y CIVIA-FRONTEND a compilar. `main` siempre existe; las ramas de trabajo
 # se borran al fusionar su PR, así que no deben usarse como valor por defecto.
 ARG CIVIA_REF=main
@@ -20,7 +20,7 @@ RUN cd CIVIA-IA && ./mvnw -B -q install -DskipTests
 COPY . CIVIA-BACKEND
 RUN cd CIVIA-BACKEND && ./mvnw -B -q package -DskipTests
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --uid 10001 civia && mkdir -p /app/data && chown civia /app/data
 WORKDIR /app
 # El jar se extrae (lib/ aparte) para poder usar CDS: arranca más rápido que el jar anidado.
