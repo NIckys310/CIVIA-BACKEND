@@ -43,3 +43,22 @@ jobs:
           (cd ../CIVIA-IA && ./mvnw -B -q install -DskipTests)
       - name: Pruebas (H2 en memoria, flujo completo de seguridad y API)
         run: ./mvnw -B verify
+
+  image:
+    name: Imagen Docker (la misma que despliega Render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Construir la imagen
+        run: docker build -t civia-ci .
+      - name: El archivo CDS se generó
+        run: docker run --rm --entrypoint ls civia-ci -la /app/app.jsa
+      - name: La API arranca y responde /api/v1/status
+        run: |
+          docker run -d --name civia -p 8080:8080 civia-ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/v1/status; then echo; docker logs civia 2>&1 | grep -E "Started CiviaApplication"; exit 0; fi
+            sleep 3
+          done
+          docker logs civia
+          exit 1
