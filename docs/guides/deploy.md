@@ -25,8 +25,26 @@ PostgreSQL en **Neon** y la interfaz pública en Vercel.
    - `CIVIA_JWT_SECRET` y `CIVIA_DATA_KEY` las genera Render. No las cambies: se cerrarían las
      sesiones y no se podrían leer los datos cifrados.
 3. El Dockerfile compila CIVIA-IA y toma la interfaz de CIVIA-FRONTEND (`CIVIA_REF`, por defecto `main`).
-4. `.github/workflows/keepalive.yml` consulta `/api/v1/status` cada 5 minutos para que el plan
-   gratuito no se duerma.
+   **Orden al publicar una versión:** fusiona primero CIVIA-IA (y CIVIA-FRONTEND) en `main` y
+   después CIVIA-BACKEND. Render compila en cuanto llega el commit del backend; si CIVIA-IA aún no
+   tiene los cambios, el build falla (pasó el 20/10/2026 con la versión 0.2.0). Si ocurre, basta con
+   **Manual Deploy → Deploy latest commit** cuando CIVIA-IA ya esté en `main`.
+
+## Disponibilidad en el plan gratuito
+
+Render apaga el servicio tras **15 minutos sin tráfico**. Despertarlo tarda unos minutos (el
+contenedor tiene ~0,1 CPU) y Vercel solo espera **120 s** antes de responder
+`502 ROUTER_EXTERNAL_TARGET_ERROR`.
+
+- **Mantenerlo despierto (recomendado):** crea un monitor gratuito en
+  [cron-job.org](https://cron-job.org) o [UptimeRobot](https://uptimerobot.com) que consulte
+  `https://civia-api-i71z.onrender.com/api/v1/status` cada 10 minutos. Las 750 h/mes gratuitas de
+  Render alcanzan para un servicio encendido todo el mes (no para dos).
+- `.github/workflows/keepalive.yml` hace lo mismo como respaldo, pero GitHub retrasa mucho los flujos
+  programados: aunque pide cada 5 min, en la práctica corre cada 2–5 horas, así que **no basta solo**.
+- Si aun así la API está dormida, la interfaz muestra «Despertando el servidor…», espera a que
+  responda y repite la petición, sin cerrar la sesión.
+- La imagen arranca más rápido gracias a CDS y al compilador C1 (ver el `Dockerfile`).
 
 ## Almacenamiento de archivos
 
