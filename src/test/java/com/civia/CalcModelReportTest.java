@@ -171,4 +171,20 @@ class CalcModelReportTest {
         String other = token("ajeno-informe@civia.test");
         mvc.perform(get("/api/v1/projects/" + id + "/report.pdf").header("Authorization", other)).andExpect(status().isNotFound());
     }
+
+    @Test
+    void libraryAnswersCarryAnEtagAndRevalidate() throws Exception {
+        String auth = token("biblioteca-etag@civia.test");
+        MvcResult first = mvc.perform(get("/api/v1/library/categories").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "private, no-cache"))
+                .andReturn();
+        String tag = first.getResponse().getHeader("ETag");
+        assertThat(tag).isNotBlank();
+        mvc.perform(get("/api/v1/library/categories").header("Authorization", auth).header("If-None-Match", tag))
+                .andExpect(status().isNotModified());
+        // Lo privado sigue sin caché.
+        mvc.perform(get("/api/v1/projects").header("Authorization", auth))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+    }
 }
