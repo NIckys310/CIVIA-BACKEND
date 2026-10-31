@@ -42,6 +42,8 @@ public class ReportController {
             "CONSTRUCTION", "Construcción", "COMPLETED", "Terminado", "ON_HOLD", "En pausa");
     private static final Map<String, String> TASK_STATUS = Map.of("TODO", "Pendiente", "IN_PROGRESS", "En curso", "REVIEW", "Revisión", "DONE", "Hecha");
     private static final Map<String, String> PRIORITY = Map.of("URGENT", "Urgente", "HIGH", "Alta", "MEDIUM", "Media", "LOW", "Baja");
+    private static final Map<String, String> MATERIAL = Map.of("concreto", "Concreto", "acero", "Acero", "madera", "Madera", "vidrio", "Vidrio",
+            "ladrillo", "Ladrillo", "bloque", "Bloque de concreto", "pintura", "Pañete y pintura", "teja", "Teja de barro");
     private static final Map<String, String> KIND = Map.of("PLAN", "Plano", "MODEL_3D", "Modelo 3D", "PHOTO", "Foto", "DOCUMENT", "Documento");
 
     private final ProjectAccess access;
@@ -147,11 +149,11 @@ public class ReportController {
             pdf.metrics(List.of(
                     new String[] {"Concreto", number(t.concreteM3(), 2), "m³"},
                     new String[] {"Acero estructural", number(t.steelKg(), 0), "kg"},
-                    new String[] {"Muros de mampostería", number(t.masonryM2(), 1), "m²"},
+                    new String[] {"Mampostería", number(t.masonryM2(), 1), "m²"},
                     new String[] {"Puertas · ventanas", t.doors() + " · " + t.windows(), number(t.glassM2(), 1) + " m² de vidrio"}));
             List<String[]> rows = new ArrayList<>();
             for (ModelQuantities.Line l : takeoff.lines()) {
-                rows.add(new String[] {l.label(), l.material(), String.valueOf(l.count()), number(l.quantity(), 2) + " " + l.unit()});
+                rows.add(new String[] {l.label(), MATERIAL.getOrDefault(l.material(), l.material()), String.valueOf(l.count()), number(l.quantity(), 2) + " " + l.unit()});
             }
             pdf.table(List.of("Elemento", "Material", "Cantidad", "Medida"), rows, new float[] {0.3f, 0.25f, 0.15f, 0.3f});
         }
