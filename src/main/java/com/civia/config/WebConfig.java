@@ -47,6 +47,16 @@ public class WebConfig implements WebMvcConfigurer {
         LOG.info("Interfaz web servida desde {}", webDir);
     }
 
+    /** ETag y revalidación (304) para la biblioteca y el glosario. */
+    @org.springframework.context.annotation.Bean
+    org.springframework.boot.web.servlet.FilterRegistrationBean<RevalidationCacheFilter> revalidationCache() {
+        var bean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(new RevalidationCacheFilter());
+        bean.addUrlPatterns("/api/v1/library/categories", "/api/v1/library/articles", "/api/v1/library/articles/*",
+                "/api/v1/library/terms", "/api/v1/library/stats", "/api/v1/library/featured");
+        bean.setName("revalidationCache");
+        return bean;
+    }
+
     /** Tipos MIME que el servidor embebido no conoce por defecto. */
     @org.springframework.context.annotation.Bean
     org.springframework.boot.web.server.WebServerFactoryCustomizer<org.springframework.boot.web.server.ConfigurableWebServerFactory> mimeTypes() {

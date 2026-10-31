@@ -52,6 +52,7 @@ public class AiService {
     private final StorageService storage;
     private final AuditService audit;
     private final AiQuota quota;
+    private final ProjectModelRepository projectModels;
 
     @Value("${civia.ai.history-turns:40}")
     private int historyTurns = 40;
@@ -63,7 +64,7 @@ public class AiService {
                      AiAnalysisRepository analyses, AiFindingRepository findings, AiConversationRepository conversations,
                      AiMessageRepository messages, TaskRepository tasks, BudgetItemRepository budgetItems,
                      ProjectMemberRepository members, RoomRepository rooms, StorageService storage, AuditService audit,
-                     AiQuota quota) {
+                     AiQuota quota, ProjectModelRepository projectModels) {
         this.ai = ai;
         this.json = json;
         this.access = access;
@@ -79,6 +80,7 @@ public class AiService {
         this.storage = storage;
         this.audit = audit;
         this.quota = quota;
+        this.projectModels = projectModels;
     }
 
     public CiviaAi engine() {
@@ -201,7 +203,9 @@ public class AiService {
         List<String> planTypes = plans.stream().map(Document::getPlanType).filter(t -> t != null && !t.isBlank()).distinct().toList();
         return new ProjectAdvisor.ProjectSnapshot(p.getName(), p.getType(), p.getPhase(), p.getBuiltArea(), p.getFloors(),
                 p.getLocation(), plans.size(),
-                (int) docs.stream().filter(d -> d.getKind() == DocumentKind.MODEL_3D).count(),
+                // El modelo paramétrico del modelador también cuenta como modelo 3D.
+                (int) docs.stream().filter(d -> d.getKind() == DocumentKind.MODEL_3D).count()
+                        + (projectModels.findByProjectId(id).filter(m -> m.getJson().contains("\"type\"")).isPresent() ? 1 : 0),
                 (int) docs.stream().filter(d -> d.getKind() == DocumentKind.PHOTO).count(),
                 (int) docs.stream().filter(d -> d.getKind() == DocumentKind.DOCUMENT).count(),
                 (int) tasks.countByProjectIdAndStatusNot(id, Enums.TaskStatus.DONE),
