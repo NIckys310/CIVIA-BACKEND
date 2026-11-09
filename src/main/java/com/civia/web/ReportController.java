@@ -42,8 +42,10 @@ public class ReportController {
             "CONSTRUCTION", "Construcción", "COMPLETED", "Terminado", "ON_HOLD", "En pausa");
     private static final Map<String, String> TASK_STATUS = Map.of("TODO", "Pendiente", "IN_PROGRESS", "En curso", "REVIEW", "Revisión", "DONE", "Hecha");
     private static final Map<String, String> PRIORITY = Map.of("URGENT", "Urgente", "HIGH", "Alta", "MEDIUM", "Media", "LOW", "Baja");
-    private static final Map<String, String> MATERIAL = Map.of("concreto", "Concreto", "acero", "Acero", "madera", "Madera", "vidrio", "Vidrio",
-            "ladrillo", "Ladrillo", "bloque", "Bloque de concreto", "pintura", "Pañete y pintura", "teja", "Teja de barro");
+    private static final Map<String, String> MATERIAL = Map.ofEntries(Map.entry("concreto", "Concreto"), Map.entry("acero", "Acero"),
+            Map.entry("madera", "Madera"), Map.entry("vidrio", "Vidrio"), Map.entry("ladrillo", "Ladrillo"), Map.entry("bloque", "Bloque de concreto"),
+            Map.entry("pintura", "Pañete y pintura"), Map.entry("teja", "Teja de barro"), Map.entry("ceramica", "Cerámica"),
+            Map.entry("piedra", "Piedra natural"), Map.entry("aluminio", "Aluminio"));
     private static final Map<String, String> KIND = Map.of("PLAN", "Plano", "MODEL_3D", "Modelo 3D", "PHOTO", "Foto", "DOCUMENT", "Documento");
 
     private final ProjectAccess access;
