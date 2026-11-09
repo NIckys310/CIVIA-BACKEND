@@ -1,6 +1,7 @@
 package com.civia.config;
 
 import com.civia.security.KeyMaterial;
+import com.civia.security.BodyLimitFilter;
 import com.civia.security.RateLimitFilter;
 import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
@@ -20,6 +21,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -52,7 +54,8 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain api(HttpSecurity http, @Value("${civia.security.cors-origins}") String origins,
                             @Value("${civia.security.auth-requests-per-minute:20}") int authPerMinute,
-                            @Value("${civia.security.api-requests-per-minute:900}") int apiPerMinute) throws Exception {
+                            @Value("${civia.security.api-requests-per-minute:900}") int apiPerMinute,
+                            @Value("${civia.security.max-json-bytes:6291456}") long maxJsonBytes) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // Bearer en cabecera; el refresh usa cookie SameSite=Strict.
                 .cors(c -> c.configurationSource(cors(origins)))
@@ -70,9 +73,11 @@ public class SecurityConfig {
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(o -> o.jwt(j -> {}))
                 .addFilterBefore(new RateLimitFilter(authPerMinute, apiPerMinute), BearerTokenAuthenticationFilter.class)
+                .addFilterBefore(new BodyLimitFilter(maxJsonBytes), BearerTokenAuthenticationFilter.class)
                 .headers(h -> h
                         .contentSecurityPolicy(c -> c.policyDirectives(CSP))
                         .frameOptions(f -> f.deny())
+                        .crossOriginOpenerPolicy(c -> c.policy(CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy.SAME_ORIGIN))
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         .httpStrictTransportSecurity(s -> s.includeSubDomains(true).maxAgeInSeconds(31_536_000))
                         .permissionsPolicyHeader(p -> p.policy("camera=(self), microphone=(), geolocation=(self), payment=()")));
