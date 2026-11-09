@@ -62,7 +62,9 @@ class CopilotStreamTest {
         String body = "";
         while (Instant.now().isBefore(limit)) {
             body = r.getResponse().getContentAsString(StandardCharsets.UTF_8);
-            if (body.contains("event:done") || body.contains("event:error")) return body;
+            // El evento se escribe por partes: solo está completo cuando llega la línea en blanco final.
+            int last = Math.max(body.indexOf("event:done"), body.indexOf("event:error"));
+            if (last >= 0 && body.substring(last).endsWith("\n\n")) return body;
             Thread.sleep(50);
         }
         return body;
