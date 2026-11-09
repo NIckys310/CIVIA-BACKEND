@@ -18,7 +18,7 @@ public final class ModelQuantities {
     public record Line(String type, String label, String material, long count, double quantity, String unit) {}
 
     public record Totals(double concreteM3, double steelKg, double masonryM2, double glassM2, double woodM3,
-                         double roofM2, long doors, long windows, long elements) {}
+                         double roofM2, long doors, long windows, long elements, double finishM2) {}
 
     public record Takeoff(List<Line> lines, Totals totals) {}
 
@@ -33,7 +33,7 @@ public final class ModelQuantities {
     public static Takeoff of(JsonNode model) {
         Map<String, double[]> grouped = new LinkedHashMap<>(); // clave → {count, quantity}
         Map<String, String[]> meta = new LinkedHashMap<>();    // clave → {type, material, unit}
-        double concrete = 0, steel = 0, masonry = 0, glass = 0, wood = 0, roof = 0;
+        double concrete = 0, steel = 0, masonry = 0, glass = 0, wood = 0, roof = 0, finish = 0;
         long doors = 0, windows = 0, elements = 0;
 
         JsonNode list = model == null ? null : model.path("elements");
@@ -42,6 +42,33 @@ public final class ModelQuantities {
                 String type = e.path("type").asText("");
                 String material = e.path("material").asText("concreto");
                 JsonNode p = e.path("params");
+                ModelStructures.Measure measure = ModelStructures.measure(type, material, p);
+                if (measure != null) {
+                    elements++;
+                    double q = measure.quantity();
+                    switch (measure.bucket()) {
+                        case VOLUME -> {
+                            if ("acero".equals(material)) steel += q * STEEL_DENSITY;
+                            else if ("madera".equals(material)) wood += q;
+                            else concrete += q;
+                        }
+                        case WALL -> {
+                            if ("concreto".equals(material)) concrete += q * measure.thickness();
+                            else masonry += q;
+                        }
+                        case ROOF -> roof += q;
+                        case FINISH -> finish += q;
+                        case GLASS -> glass += q;
+                        case DOOR -> doors++;
+                        case WINDOW -> { windows++; glass += q; }
+                    }
+                    String key = type + "|" + material;
+                    double[] g = grouped.computeIfAbsent(key, k -> new double[2]);
+                    g[0]++;
+                    g[1] += q;
+                    meta.putIfAbsent(key, new String[] {type, material, measure.unit()});
+                    continue;
+                }
                 double qty;
                 String unit;
                 switch (type) {
@@ -91,13 +118,13 @@ public final class ModelQuantities {
         List<Line> lines = new ArrayList<>();
         grouped.forEach((key, g) -> {
             String[] m = meta.get(key);
-            lines.add(new Line(m[0], LABELS.getOrDefault(m[0], m[0]), m[1], (long) g[0], round(g[1]), m[2]));
+            lines.add(new Line(m[0], LABELS.getOrDefault(m[0], ModelStructures.LABELS.getOrDefault(m[0], m[0])), m[1], (long) g[0], round(g[1]), m[2]));
         });
         return new Takeoff(lines, new Totals(round(concrete), round(steel), round(masonry), round(glass), round(wood),
-                round(roof), doors, windows, elements));
+                round(roof), doors, windows, elements, round(finish)));
     }
 
-    private static double num(JsonNode p, String field, double fallback) {
+    static double num(JsonNode p, String field, double fallback) {
         JsonNode v = p.path(field);
         double d = v.isNumber() ? v.asDouble() : fallback;
         // Dimensiones absurdas (negativas o kilométricas) no deben inflar el presupuesto.
