@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.OptionalLong;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -28,14 +29,19 @@ public final class Totp {
 
     /** Acepta el código actual y el de la ventana anterior/siguiente (desfase de reloj). */
     public static boolean verify(String secret, String code, Instant now) {
-        if (secret == null || code == null) return false;
+        return matchedStep(secret, code, now).isPresent();
+    }
+
+    /** Ventana de tiempo a la que corresponde el código: permite rechazar un código ya usado. */
+    public static OptionalLong matchedStep(String secret, String code, Instant now) {
+        if (secret == null || code == null) return OptionalLong.empty();
         String digits = code.replaceAll("\\s", "");
-        if (!digits.matches("\\d{6}")) return false;
+        if (!digits.matches("\\d{6}")) return OptionalLong.empty();
         long step = now.getEpochSecond() / 30;
         for (long i = -1; i <= 1; i++) {
-            if (Hashing.constantTimeEquals(code(secret, step + i), digits)) return true;
+            if (Hashing.constantTimeEquals(code(secret, step + i), digits)) return OptionalLong.of(step + i);
         }
-        return false;
+        return OptionalLong.empty();
     }
 
     static String code(String secret, long step) {
