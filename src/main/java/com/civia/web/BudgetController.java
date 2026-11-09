@@ -202,9 +202,9 @@ public class BudgetController {
         BudgetDto b = budget(access.view(id));
         StringBuilder csv = new StringBuilder("﻿Código;Descripción;Unidad;Cantidad;Valor unitario;Total\n");
         for (ChapterDto c : b.chapters()) {
-            csv.append(c.code()).append(";").append(esc(c.name())).append(";;;;").append(c.subtotal()).append('\n');
+            csv.append(esc(c.code())).append(";").append(esc(c.name())).append(";;;;").append(c.subtotal()).append('\n');
             for (ItemDto i : c.items()) {
-                csv.append(i.code() == null ? "" : i.code()).append(';').append(esc(i.description())).append(';').append(i.unit())
+                csv.append(esc(i.code())).append(';').append(esc(i.description())).append(';').append(esc(i.unit()))
                         .append(';').append(i.quantity()).append(';').append(i.unitPrice()).append(';').append(i.total()).append('\n');
             }
         }
@@ -222,7 +222,7 @@ public class BudgetController {
 
     /** Evita inyección de fórmulas al abrir el CSV en Excel. */
     private static String esc(String s) {
-        String v = s == null ? "" : s.replace(";", ",").replace("\n", " ");
-        return v.matches("^[=+\\-@].*") ? "'" + v : v;
+        String v = s == null ? "" : s.replace(";", ",").replace("\r", " ").replace("\n", " ").strip();
+        return v.matches("^[=+\\-@\\t].*") ? "'" + v : v;
     }
 }

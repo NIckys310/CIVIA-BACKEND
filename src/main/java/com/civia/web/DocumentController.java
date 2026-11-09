@@ -42,11 +42,13 @@ public class DocumentController {
     private final AiAnalysisRepository analyses;
     private final StorageService storage;
     private final AuditService audit;
+    private final long quotaBytes;
 
     public DocumentController(ProjectAccess access, DocumentRepository documents, DocumentVersionRepository versions,
                               PhotoMetadataRepository photos, MeasurementRepository measurements,
                               ModelAnnotationRepository annotations, AiAnalysisRepository analyses,
-                              StorageService storage, AuditService audit) {
+                              StorageService storage, AuditService audit,
+                              @org.springframework.beans.factory.annotation.Value("${civia.storage.user-quota-gb:10}") long quotaGb) {
         this.access = access;
         this.documents = documents;
         this.versions = versions;
@@ -56,6 +58,7 @@ public class DocumentController {
         this.analyses = analyses;
         this.storage = storage;
         this.audit = audit;
+        this.quotaBytes = quotaGb * 1024 * 1024 * 1024;
     }
 
     private DocumentDto dto(Document d) {
@@ -86,6 +89,7 @@ public class DocumentController {
                               @RequestParam(required = false) String deviceInfo) {
         Project p = access.edit(id);
         User me = access.me();
+        requireQuota(me, file);
         String original = cleanName(file.getOriginalFilename());
         StorageService.FileType type = storage.typeOf(original);
         StorageService.Stored stored = store(file, type);
@@ -126,6 +130,7 @@ public class DocumentController {
     public DocumentDto newVersion(@PathVariable UUID docId, @RequestPart("file") MultipartFile file,
                                   @RequestParam(required = false) String note) {
         Document d = editable(docId);
+        requireQuota(access.me(), file);
         StorageService.FileType type = storage.typeOf(cleanName(file.getOriginalFilename()));
         if (!type.extension().equals(d.getExtension())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nueva versión debe ser del mismo formato (." + d.getExtension() + ").");
@@ -304,6 +309,14 @@ public class DocumentController {
         Document d = documents.findById(docId).orElseThrow(() -> ProjectAccess.notFound("Archivo"));
         access.edit(d.getProject().getId());
         return d;
+    }
+
+    /** Una cuenta no puede llenar el disco del servidor: cada persona tiene su cupo de archivos. */
+    private void requireQuota(User me, MultipartFile file) {
+        if (versions.bytesUploadedBy(me.getId()) + file.getSize() > quotaBytes) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Alcanzaste tu límite de almacenamiento (" + quotaBytes / (1024 * 1024 * 1024) + " GB). Borra archivos que ya no necesites.");
+        }
     }
 
     private StorageService.Stored store(MultipartFile file, StorageService.FileType type) {

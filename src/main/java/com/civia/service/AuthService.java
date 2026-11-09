@@ -86,6 +86,12 @@ public class AuthService {
         this.dummyHash = passwords.hash(Hashing.randomToken());
     }
 
+    /** El usuario llega de fuera de la transacción: sin volver a cargarlo, sus cambios no se guardarían. */
+    private User managed(User account) {
+        return users.findById(account.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sesión no válida"));
+    }
+
     public static String normalizeEmail(String email) {
         return email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
     }
@@ -190,7 +196,13 @@ public class AuthService {
                 return new LoginResult(user, null, true);
             }
             if (!verifySecondFactor(user, mfaCode)) {
+                // Con la contraseña en su poder, sin este bloqueo se podrían probar los códigos sin fin.
                 user.setFailedLogins(user.getFailedLogins() + 1);
+                if (user.getFailedLogins() >= maxFailed) {
+                    user.setLockedUntil(Instant.now().plus(lockout));
+                    user.setFailedLogins(0);
+                    audit.security(user, "locked", ip, userAgent, "Bloqueo por " + maxFailed + " códigos de verificación fallidos");
+                }
                 record(normalized, ip, false, "bad-mfa");
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Código de verificación incorrecto.");
             }
@@ -212,7 +224,11 @@ public class AuthService {
     private boolean verifySecondFactor(User user, String code) {
         String clean = code.replaceAll("[\\s-]", "");
         if (clean.matches("\\d{6}")) {
-            return Totp.verify(user.getMfaSecret(), clean, Instant.now());
+            var step = Totp.matchedStep(user.getMfaSecret(), clean, Instant.now());
+            // Cada código sirve una sola vez, aunque siga vigente.
+            if (step.isEmpty() || (user.getMfaLastStep() != null && step.getAsLong() <= user.getMfaLastStep())) return false;
+            user.setMfaLastStep(step.getAsLong());
+            return true;
         }
         String hash = Hashing.sha256(clean.toUpperCase(Locale.ROOT));
         for (MfaRecoveryCode rc : recoveryCodes.findByUserIdAndUsedAtIsNull(user.getId())) {
@@ -238,7 +254,8 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenService.Issued changePassword(User user, String current, String next, String userAgent, String ip) {
+    public TokenService.Issued changePassword(User account, String current, String next, String userAgent, String ip) {
+        User user = managed(account);
         if (!passwords.matches(current, user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña actual no es correcta.");
         }
@@ -253,7 +270,8 @@ public class AuthService {
     }
 
     @Transactional
-    public MfaSetup startMfa(User user) {
+    public MfaSetup startMfa(User account) {
+        User user = managed(account);
         if (user.isMfaEnabled()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La verificación en dos pasos ya está activa.");
         }
@@ -264,7 +282,8 @@ public class AuthService {
 
     /** Activa MFA y devuelve los códigos de recuperación (se muestran una sola vez). */
     @Transactional
-    public List<String> enableMfa(User user, String code, String ip, String userAgent) {
+    public List<String> enableMfa(User account, String code, String ip, String userAgent) {
+        User user = managed(account);
         if (user.getMfaSecret() == null || !Totp.verify(user.getMfaSecret(), code, Instant.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código incorrecto. Revisa la hora de tu teléfono.");
         }
@@ -284,12 +303,14 @@ public class AuthService {
     }
 
     @Transactional
-    public void disableMfa(User user, String password, String ip, String userAgent) {
+    public void disableMfa(User account, String password, String ip, String userAgent) {
+        User user = managed(account);
         if (!passwords.matches(password, user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Contraseña incorrecta.");
         }
         user.setMfaEnabled(false);
         user.setMfaSecret(null);
+        user.setMfaLastStep(null);
         recoveryCodes.deleteByUserId(user.getId());
         audit.security(user, "mfa-disabled", ip, userAgent, "Verificación en dos pasos desactivada");
     }
