@@ -33,4 +33,7 @@ public class LibraryArticle extends BaseEntity {
     @Column(columnDefinition = "text", nullable = false) private String body;
 
     @Column(columnDefinition = "text") private String tagsCsv;
+
+    /** false: espera revisión y nadie más lo ve. null: artículo anterior a la moderación. */
+    private Boolean approved;
 }
