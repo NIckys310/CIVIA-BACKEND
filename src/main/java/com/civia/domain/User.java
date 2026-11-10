@@ -48,6 +48,9 @@ public class User extends BaseEntity {
 
     private boolean mfaEnabled;
 
+    /** Cuándo confirmó su correo; null si aún no lo hace. */
+    private java.time.Instant emailVerifiedAt;
+
     /** Última ventana TOTP aceptada: un código no se puede usar dos veces. */
     private Long mfaLastStep;
 

@@ -35,7 +35,7 @@ public final class Dto {
 
     public record UserDto(UUID id, String email, String fullName, String phone, String profession, String avatarColor,
                           String role, boolean mfaEnabled, Instant createdAt, Instant lastLoginAt, String organization,
-                          ProfileDto profile, PreferencesDto preferences) {}
+                          ProfileDto profile, PreferencesDto preferences, Boolean emailVerified) {}
 
     public record UpdateUserRequest(String fullName, String phone, String profession, ProfileDto profile, PreferencesDto preferences) {}
 
@@ -139,7 +139,7 @@ public final class Dto {
 
     public record CategoryDto(String id, String name, String icon, String description, long articles) {}
 
-    public record ArticleSummary(String slug, String category, String title, String summary, List<String> tags, boolean custom) {}
+    public record ArticleSummary(String slug, String category, String title, String summary, List<String> tags, boolean custom, Boolean pending) {}
 
     public record ArticleDto(String slug, String category, String title, String summary, List<String> tags, String body,
                              boolean custom, boolean favorite, List<ArticleSummary> related, boolean mine) {}
@@ -180,7 +180,8 @@ public final class Dto {
                 u.getRole().name(), u.isMfaEnabled(), u.getCreatedAt(), u.getLastLoginAt(),
                 u.getOrganization() == null ? null : u.getOrganization().getName(),
                 p == null ? null : new ProfileDto(p.getBio(), p.getCompany(), p.getProfessionalId(), p.getCity(), p.getCountry(), p.getWebsite()),
-                pref == null ? null : new PreferencesDto(pref.getTheme(), pref.getLanguage(), pref.getUnits(), pref.isEmailNotifications(), pref.isCompactMode()));
+                pref == null ? null : new PreferencesDto(pref.getTheme(), pref.getLanguage(), pref.getUnits(), pref.isEmailNotifications(), pref.isCompactMode()),
+                u.getEmailVerifiedAt() != null);
     }
 
     public static ProjectDto project(Project p, String role, ProjectStats stats) {

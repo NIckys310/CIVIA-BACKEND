@@ -11,6 +11,7 @@ import com.civia.security.PasswordService;
 import com.civia.security.TokenService;
 import com.civia.service.AuditService;
 import com.civia.service.AuthService;
+import com.civia.service.EmailVerificationService;
 import com.civia.service.PasswordResetService;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
@@ -56,11 +57,13 @@ public class AuthController {
     private final SecurityEventRepository securityEvents;
     private final AuditService audit;
     private final PasswordResetService resets;
+    private final EmailVerificationService verification;
     private final boolean secureCookies;
 
     public AuthController(AuthService auth, TokenService tokens, PasswordService passwords, ProjectAccess access,
                           UserProfileRepository profiles, UserPreferenceRepository preferences,
                           SecurityEventRepository securityEvents, AuditService audit, PasswordResetService resets,
+                          EmailVerificationService verification,
                           @Value("${civia.security.secure-cookies:true}") boolean secureCookies) {
         this.auth = auth;
         this.tokens = tokens;
@@ -71,6 +74,7 @@ public class AuthController {
         this.securityEvents = securityEvents;
         this.audit = audit;
         this.resets = resets;
+        this.verification = verification;
         this.secureCookies = secureCookies;
     }
 
@@ -79,6 +83,7 @@ public class AuthController {
     public TokenResponse register(@RequestBody RegisterRequest req, HttpServletRequest http, HttpServletResponse res) {
         AuthService.LoginResult r = auth.register(req.fullName(), req.email(), req.password(), req.profession(),
                 req.organization(), agent(http), http.getRemoteAddr());
+        verification.send(r.user().getId());
         return respond(r.user(), r.tokens(), res);
     }
 
@@ -181,6 +186,18 @@ public class AuthController {
         clearCookie(res);
         res.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         return Map.of("reset", true, "message", "Contraseña actualizada. Inicia sesión con la nueva.");
+    }
+
+    @PostMapping("/email/verify")
+    public Map<String, Object> verifyEmail(@RequestBody Map<String, String> body) {
+        verification.verify(body.get("token"));
+        return Map.of("verified", true);
+    }
+
+    @PostMapping("/email/resend")
+    public Map<String, Object> resendVerification() {
+        verification.send(access.me().getId());
+        return Map.of("sent", true);
     }
 
     @PostMapping("/password/check")
