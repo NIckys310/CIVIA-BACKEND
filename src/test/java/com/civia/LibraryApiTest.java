@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:civia-library;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "civia.storage.dir=target/test-uploads",
+        "civia.library.moderation=false",
         "civia.security.keys-dir=target/test-keys",
         "civia.ai.anthropic-api-key=",
         "civia.web.dir=target/no-web",

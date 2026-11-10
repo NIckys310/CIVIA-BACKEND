@@ -79,7 +79,7 @@ class CalcModelReportTest {
         String auth = token("catalogo@civia.test");
         MvcResult first = mvc.perform(get("/api/v1/calc").header("Authorization", auth))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(10))
+                .andExpect(jsonPath("$.length()").value(11))
                 .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=3600")))
                 .andReturn();
         String tag = first.getResponse().getHeader("ETag");

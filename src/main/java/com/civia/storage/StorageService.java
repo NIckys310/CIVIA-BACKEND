@@ -71,6 +71,8 @@ public class StorageService {
         return Map.entry(ext, new FileType(ext, mt, kind, magic, text));
     }
 
+    private static final long MAX_READ_BYTES = 40L * 1024 * 1024;
+
     private final Path root;
 
     public StorageService(@Value("${civia.storage.dir}") String dir) throws IOException {
@@ -154,8 +156,12 @@ public class StorageService {
         return p;
     }
 
+    /** Lee un archivo completo a memoria para analizarlo; los muy grandes se rechazan. */
     public byte[] read(String key) {
         try {
+            if (Files.size(resolve(key)) > MAX_READ_BYTES) {
+                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "El archivo es demasiado grande para analizarlo (máximo 40 MB).");
+            }
             return Files.readAllBytes(resolve(key));
         } catch (IOException e) {
             throw new UncheckedIOException(e);

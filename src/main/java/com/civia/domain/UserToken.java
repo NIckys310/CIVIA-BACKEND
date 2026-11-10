@@ -18,6 +18,7 @@ import lombok.Setter;
 public class UserToken extends BaseEntity {
 
     public static final String PASSWORD_RESET = "PASSWORD_RESET";
+    public static final String EMAIL_VERIFY = "EMAIL_VERIFY";
 
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(nullable = false) private User user;
 
