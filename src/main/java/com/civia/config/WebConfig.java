@@ -61,7 +61,7 @@ public class WebConfig implements WebMvcConfigurer {
     @org.springframework.context.annotation.Bean
     org.springframework.boot.web.server.WebServerFactoryCustomizer<org.springframework.boot.web.server.ConfigurableWebServerFactory> mimeTypes() {
         return factory -> {
-            if (factory instanceof org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory servlet) {
+            if (factory instanceof org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory servlet) {
                 org.springframework.boot.web.server.MimeMappings mappings = new org.springframework.boot.web.server.MimeMappings(org.springframework.boot.web.server.MimeMappings.DEFAULT);
                 mappings.add("webmanifest", "application/manifest+json");
                 mappings.add("glb", "model/gltf-binary");
