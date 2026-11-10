@@ -67,6 +67,9 @@ civia:
   web:
     # Carpeta de la interfaz (repositorio CIVIA-FRONTEND clonado al lado de este).
     dir: ${CIVIA_WEB_DIR:../CIVIA-FRONTEND/web}
+  library:
+    # Los artículos de los usuarios se publican solo después de que un administrador los apruebe.
+    moderation: ${CIVIA_LIBRARY_MODERATION:true}
   storage:
     dir: ${CIVIA_STORAGE_DIR:./data/uploads}
   security:
@@ -76,6 +79,10 @@ civia:
     access-token-minutes: ${CIVIA_ACCESS_TOKEN_MINUTES:15}
     refresh-token-days: ${CIVIA_REFRESH_TOKEN_DAYS:30}
     secure-cookies: ${CIVIA_SECURE_COOKIES:true}
+    # Correos de quienes aprueban artículos de la biblioteca (separados por coma).
+    admin-emails: ${CIVIA_ADMIN_EMAILS:}
+    # Actívalo cuando el correo funcione: sin confirmar el correo no se puede usar la IA.
+    require-verified-email: ${CIVIA_REQUIRE_VERIFIED_EMAIL:false}
     cors-origins: ${CIVIA_CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
     max-failed-logins: 5
     lockout-minutes: 15
@@ -86,6 +93,8 @@ civia:
   mail:
     # log (desarrollo: el correo se escribe en el log) o smtp (requiere SPRING_MAIL_HOST y demás spring.mail.*).
     mode: ${CIVIA_MAIL_MODE:log}
+    # Modo brevo: envío por HTTPS, necesario en el plan gratuito de Render (bloquea los puertos SMTP).
+    brevo-api-key: ${BREVO_API_KEY:}
     from: ${CIVIA_MAIL_FROM:CIVIA AI <no-reply@civia.local>}
     # URL pública de la interfaz para los enlaces de los correos (nunca se toma de la cabecera Host).
     public-url: ${CIVIA_PUBLIC_URL:http://localhost:8080}
