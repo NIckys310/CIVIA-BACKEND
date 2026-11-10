@@ -45,23 +45,34 @@ public class LibraryController {
     private final LibraryFavoriteRepository favorites;
     private final LibrarySearchLogRepository searches;
     private final AiQuota quota;
+    private final boolean moderation;
+    private final Set<String> adminEmails;
     private volatile Set<String> customSlugs = Set.of();
 
     public LibraryController(CiviaAi ai, ProjectAccess access, LibraryArticleRepository custom,
-                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches, AiQuota quota) {
+                             LibraryFavoriteRepository favorites, LibrarySearchLogRepository searches, AiQuota quota,
+                             @org.springframework.beans.factory.annotation.Value("${civia.library.moderation:true}") boolean moderation,
+                             @org.springframework.beans.factory.annotation.Value("${civia.security.admin-emails:}") String adminEmails) {
         this.ai = ai;
         this.access = access;
         this.custom = custom;
         this.favorites = favorites;
         this.searches = searches;
         this.quota = quota;
+        this.moderation = moderation;
+        this.adminEmails = Arrays.stream(adminEmails.split(",")).map(s -> s.strip().toLowerCase(java.util.Locale.ROOT)).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toSet());
+    }
+
+    private boolean isAdmin(User u) {
+        return u.getRole() == com.civia.domain.Enums.UserRole.ADMIN || adminEmails.contains(u.getEmail());
     }
 
     /** Suma a la búsqueda los artículos creados por los usuarios. */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(readOnly = true)
     public void loadCustomArticles() {
-        List<LibraryArticle> all = custom.findAll();
+        // Lo que escriben los usuarios alimenta la búsqueda y al Copilot: solo entra después de revisarlo.
+        List<LibraryArticle> all = custom.findAll().stream().filter(a -> !Boolean.FALSE.equals(a.getApproved())).toList();
         customSlugs = new HashSet<>(all.stream().map(LibraryArticle::getSlug).toList());
         // Siempre se reconstruye: así un artículo borrado también sale de la búsqueda.
         ai.extendLibrary(all.stream().map(LibraryController::toKb).toList());
@@ -74,7 +85,7 @@ public class LibraryController {
     }
 
     private ArticleSummary summary(KnowledgeBase.Article a) {
-        return new ArticleSummary(a.slug(), a.category(), a.title(), a.summary(), a.tags(), customSlugs.contains(a.slug()));
+        return new ArticleSummary(a.slug(), a.category(), a.title(), a.summary(), a.tags(), customSlugs.contains(a.slug()), null);
     }
 
     /** Artículo destacado del día: cambia cada día y es el mismo para todos. */
@@ -120,10 +131,14 @@ public class LibraryController {
     @Transactional(readOnly = true)
     public ArticleDto article(@PathVariable String slug) {
         KnowledgeBase kb = ai.library();
-        KnowledgeBase.Article a = kb.article(slug).orElseThrow(() -> ProjectAccess.notFound("Artículo"));
         User me = access.me();
+        // Un artículo en revisión solo lo ven quien lo escribió y quien lo aprueba.
+        KnowledgeBase.Article a = kb.article(slug).or(() -> custom.findBySlug(slug)
+                        .filter(x -> isAdmin(me) || (x.getAuthor() != null && x.getAuthor().getId().equals(me.getId())))
+                        .map(LibraryController::toKb))
+                .orElseThrow(() -> ProjectAccess.notFound("Artículo"));
         boolean fav = favorites.findByUserIdAndSlug(me.getId(), slug).isPresent();
-        boolean mine = customSlugs.contains(slug) && custom.findBySlug(slug)
+        boolean mine = custom.findBySlug(slug)
                 .map(x -> x.getAuthor() != null && x.getAuthor().getId().equals(me.getId())).orElse(false);
         List<ArticleSummary> related = kb.searchArticles(a.title() + " " + String.join(" ", a.tags()), 6).stream()
                 .filter(r -> !r.slug().equals(slug)).limit(4).map(this::summary).toList();
@@ -156,16 +171,48 @@ public class LibraryController {
         a.setTagsCsv(req.tags() == null ? "" : String.join(",", req.tags()));
         a.setAuthor(me);
         a.setOrganization(me.getOrganization());
+        a.setApproved(!moderation || isAdmin(me));
         custom.save(a);
         loadCustomArticles();
-        return summary(toKb(a));
+        return pendingAware(a);
+    }
+
+    private ArticleSummary pendingAware(LibraryArticle a) {
+        KnowledgeBase.Article k = toKb(a);
+        boolean pending = Boolean.FALSE.equals(a.getApproved());
+        return new ArticleSummary(k.slug(), k.category(), k.title(), k.summary(), k.tags(), true, pending ? Boolean.TRUE : null);
+    }
+
+    @Operation(summary = "Artículos en revisión: todos para quien aprueba, los propios para los demás")
+    @GetMapping("/pending")
+    @Transactional(readOnly = true)
+    public Map<String, Object> pending() {
+        User me = access.me();
+        boolean admin = isAdmin(me);
+        List<ArticleSummary> items = custom.findAll().stream().filter(a -> Boolean.FALSE.equals(a.getApproved()))
+                .filter(a -> admin || (a.getAuthor() != null && a.getAuthor().getId().equals(me.getId())))
+                .map(this::pendingAware).toList();
+        return Map.of("canApprove", admin, "items", items);
+    }
+
+    @Operation(summary = "Aprobar un artículo en revisión")
+    @PostMapping("/articles/{slug}/approve")
+    @CacheEvict(cacheNames = LIBRARY_CACHE, allEntries = true)
+    @Transactional
+    public ArticleSummary approve(@PathVariable String slug) {
+        if (!isAdmin(access.me())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo un administrador puede aprobar artículos.");
+        LibraryArticle a = custom.findBySlug(slug).orElseThrow(() -> ProjectAccess.notFound("Artículo"));
+        a.setApproved(true);
+        custom.flush();
+        loadCustomArticles();
+        return pendingAware(a);
     }
 
     /** Artículo propio: solo quien lo escribió puede cambiarlo o borrarlo. Los de CIVIA no se editan. */
     private LibraryArticle ownArticle(String slug) {
         User me = access.me();
         return custom.findBySlug(slug)
-                .filter(a -> a.getAuthor() != null && a.getAuthor().getId().equals(me.getId()))
+                .filter(a -> isAdmin(me) || (a.getAuthor() != null && a.getAuthor().getId().equals(me.getId())))
                 .orElseThrow(() -> ProjectAccess.notFound("Artículo"));
     }
 
@@ -182,8 +229,11 @@ public class LibraryController {
         if (req.category() != null && ai.library().categories().stream().anyMatch(c -> c.id().equals(req.category()))) {
             a.setCategory(req.category());
         }
+        // Editar lo vuelve a revisar: no se puede cambiar el contenido después de aprobado.
+        if (moderation && !isAdmin(access.me())) a.setApproved(false);
+        custom.flush();
         loadCustomArticles();
-        return summary(toKb(a));
+        return pendingAware(a);
     }
 
     @Operation(summary = "Borrar un artículo propio")

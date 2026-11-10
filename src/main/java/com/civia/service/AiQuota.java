@@ -3,6 +3,8 @@ package com.civia.service;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import com.civia.repo.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -19,13 +21,28 @@ public class AiQuota {
 
     private final Map<UUID, Window> windows = new ConcurrentHashMap<>();
     private final int perMinute;
+    private final boolean requireVerifiedEmail;
+    private final UserRepository users;
 
-    public AiQuota(@Value("${civia.ai.requests-per-minute:20}") int perMinute) {
+    public AiQuota(int perMinute) {
+        this(perMinute, false, null);
+    }
+
+    @Autowired
+    public AiQuota(@Value("${civia.ai.requests-per-minute:20}") int perMinute,
+                   @Value("${civia.security.require-verified-email:false}") boolean requireVerifiedEmail,
+                   UserRepository users) {
         this.perMinute = perMinute;
+        this.requireVerifiedEmail = requireVerifiedEmail;
+        this.users = users;
     }
 
     /** Cuenta una pregunta; si se supera la cuota responde 429. */
     public void acquire(UUID userId) {
+        // Crear cuentas sin confirmar no debe servir para gastar la cuota de IA.
+        if (requireVerifiedEmail && users.findById(userId).map(u -> u.getEmailVerifiedAt() == null).orElse(true)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Confirma tu correo para usar la IA. Puedes reenviar el enlace desde tu perfil.");
+        }
         long minute = System.currentTimeMillis() / 60_000;
         Window w = windows.compute(userId, (k, old) -> old == null || old.minute() != minute
                 ? new Window(minute, 1) : new Window(minute, old.count() + 1));

@@ -4,17 +4,23 @@ import com.civia.domain.BudgetChapter;
 import com.civia.domain.BudgetItem;
 import com.civia.domain.BudgetSettings;
 import com.civia.domain.Project;
+import com.civia.domain.ProjectModel;
 import com.civia.repo.BudgetChapterRepository;
 import com.civia.repo.BudgetItemRepository;
 import com.civia.repo.BudgetSettingsRepository;
+import com.civia.repo.ProjectModelRepository;
 import com.civia.service.AuditService;
+import com.civia.service.ModelQuantities;
 import com.civia.service.ProjectAccess;
 import com.civia.web.Dto.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,14 +40,18 @@ public class BudgetController {
     private final BudgetItemRepository items;
     private final BudgetSettingsRepository settings;
     private final AuditService audit;
+    private final ProjectModelRepository models;
+    private final ObjectMapper json;
 
     public BudgetController(ProjectAccess access, BudgetChapterRepository chapters, BudgetItemRepository items,
-                            BudgetSettingsRepository settings, AuditService audit) {
+                            BudgetSettingsRepository settings, AuditService audit, ProjectModelRepository models, ObjectMapper json) {
         this.access = access;
         this.chapters = chapters;
         this.items = items;
         this.settings = settings;
         this.audit = audit;
+        this.models = models;
+        this.json = json;
     }
 
     @GetMapping
@@ -157,6 +167,52 @@ public class BudgetController {
     public BudgetDto deleteItem(@PathVariable UUID id, @PathVariable UUID itemId) {
         Project p = access.edit(id);
         items.findById(itemId).filter(x -> x.getChapter().getProject().getId().equals(id)).ifPresent(items::delete);
+        return budget(p);
+    }
+
+    private static final String MODEL_CHAPTER = "M3D";
+    private static final java.util.Set<String> COUNTED = java.util.Set.of("door", "double_door", "sliding_door", "garage_door", "window", "sliding_window");
+
+    /** Genera o actualiza el capítulo «Modelo 3D» con las cantidades del modelo, conservando los precios ya escritos. */
+    @PostMapping("/from-model")
+    @Transactional
+    public BudgetDto fromModel(@PathVariable UUID id) throws com.fasterxml.jackson.core.JsonProcessingException {
+        Project p = access.edit(id);
+        ProjectModel model = models.findByProjectId(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Este proyecto aún no tiene un modelo 3D guardado."));
+        ModelQuantities.Takeoff takeoff = ModelQuantities.of(json.readTree(model.getJson()));
+        if (takeoff.lines().isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El modelo 3D no tiene elementos.");
+
+        List<BudgetChapter> existing = chapters.findByProjectIdOrderBySortOrderAsc(id);
+        BudgetChapter chapter = existing.stream().filter(c -> MODEL_CHAPTER.equals(c.getCode())).findFirst().orElseGet(() -> {
+            BudgetChapter c = new BudgetChapter();
+            c.setProject(p);
+            c.setName("Modelo 3D");
+            c.setCode(MODEL_CHAPTER);
+            c.setSortOrder(existing.size() + 1);
+            return chapters.save(c);
+        });
+        Map<String, BigDecimal> prices = new HashMap<>();
+        items.findByChapterProjectIdOrderByCodeAsc(id).stream().filter(i -> i.getChapter().getId().equals(chapter.getId()))
+                .forEach(i -> prices.put(i.getDescription(), i.getUnitPrice()));
+        items.deleteByChapterId(chapter.getId());
+        items.flush();
+
+        int n = 1;
+        for (ModelQuantities.Line line : takeoff.lines()) {
+            boolean counted = COUNTED.contains(line.type());
+            boolean steel = "acero".equals(line.material()) && "m³".equals(line.unit());
+            BudgetItem item = new BudgetItem();
+            item.setChapter(chapter);
+            item.setCode(String.format("%s.%02d", MODEL_CHAPTER, n++));
+            item.setDescription(line.label() + " · " + line.material());
+            item.setUnit(counted ? "und" : steel ? "kg" : "m³".equals(line.unit()) ? "m3" : "m2");
+            item.setQuantity(BigDecimal.valueOf(counted ? line.count() : steel ? line.quantity() * 7850 : line.quantity()));
+            item.setUnitPrice(prices.getOrDefault(item.getDescription(), BigDecimal.ZERO));
+            items.save(item);
+        }
+        items.flush();
+        audit.activity(p, access.me(), "budget.from-model", "budget", chapter.getId(), "Actualizó el presupuesto con las cantidades del modelo 3D");
         return budget(p);
     }
 

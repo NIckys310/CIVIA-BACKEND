@@ -66,7 +66,7 @@ public class SecurityConfig {
                         // Segunda pasada de una respuesta en streaming (SSE): la petición original ya se autorizó.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/password/check",
-                                "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset").permitAll()
+                                "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset", "/api/v1/auth/email/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/password-policy", "/api/v1/status").permitAll()
                         .requestMatchers("/api/v1/openapi.json", "/api/v1/openapi.json/**", "/api/docs", "/api/docs/**", "/api/swagger-ui/**", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
