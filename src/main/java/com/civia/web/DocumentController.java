@@ -196,8 +196,7 @@ public class DocumentController {
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> file(@PathVariable UUID docId, @RequestParam(defaultValue = "false") boolean download) {
         Document d = viewable(docId);
-        FileSystemResource res = new FileSystemResource(storage.resolve(d.getStorageKey()));
-        if (!res.exists()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El archivo ya no está en el almacenamiento.");
+        Resource res = storage.open(d.getStorageKey());
         boolean inline = !download && (d.getMediaType().startsWith("image/") || d.getMediaType().equals("application/pdf")
                 || d.getKind() == DocumentKind.MODEL_3D);
         ContentDisposition cd = (inline ? ContentDisposition.inline() : ContentDisposition.attachment())

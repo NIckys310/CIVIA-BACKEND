@@ -72,6 +72,13 @@ civia:
     moderation: ${CIVIA_LIBRARY_MODERATION:true}
   storage:
     dir: ${CIVIA_STORAGE_DIR:./data/uploads}
+    # Almacenamiento externo compatible con S3 (Cloudflare R2): con un bucket, los archivos no se pierden al reiniciar.
+    s3:
+      bucket: ${CIVIA_S3_BUCKET:}
+      endpoint: ${CIVIA_S3_ENDPOINT:}
+      region: ${CIVIA_S3_REGION:auto}
+      access-key: ${CIVIA_S3_ACCESS_KEY:}
+      secret-key: ${CIVIA_S3_SECRET_KEY:}
   security:
     jwt-secret: ${CIVIA_JWT_SECRET:}
     data-key: ${CIVIA_DATA_KEY:}
