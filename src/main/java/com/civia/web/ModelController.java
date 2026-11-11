@@ -92,6 +92,18 @@ public class ModelController {
         return dto(m);
     }
 
+    /** Para avisar en el modelador cuando otra persona guardó: solo la revisión, sin el modelo completo. */
+    public record RevisionDto(int revision, Instant updatedAt, String updatedBy) {}
+
+    @Operation(summary = "Revisión actual del modelo 3D")
+    @GetMapping("/revision")
+    @Transactional(readOnly = true)
+    public RevisionDto revision(@PathVariable UUID id) {
+        access.view(id);
+        return models.findByProjectId(id).map(m -> new RevisionDto(m.getRevision(), m.getUpdatedAt(),
+                m.getUpdatedBy() == null ? null : m.getUpdatedBy().getFullName())).orElse(new RevisionDto(0, null, null));
+    }
+
     @Operation(summary = "Cómputo de cantidades del modelo 3D")
     @GetMapping("/quantities")
     @Transactional(readOnly = true)

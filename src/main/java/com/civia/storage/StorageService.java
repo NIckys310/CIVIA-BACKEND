@@ -74,9 +74,13 @@ public class StorageService {
     private static final long MAX_READ_BYTES = 40L * 1024 * 1024;
 
     private final Path root;
+    /** Almacenamiento externo (R2/S3). Si es null, los archivos quedan en el disco local. */
+    private final ObjectStore remote;
 
-    public StorageService(@Value("${civia.storage.dir}") String dir) throws IOException {
+    public StorageService(@Value("${civia.storage.dir}") String dir,
+                          @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectStore remote) throws IOException {
         this.root = Path.of(dir).toAbsolutePath().normalize();
+        this.remote = remote;
         Files.createDirectories(root);
     }
 
@@ -110,7 +114,14 @@ public class StorageService {
                 try (DigestInputStream in = new DigestInputStream(buffered, digest);
                      OutputStream out = Files.newOutputStream(target)) {
                     long size = in.transferTo(out);
-                    return new Stored(key, size, HexFormat.of().formatHex(digest.digest()));
+                    String sha = HexFormat.of().formatHex(digest.digest());
+                    out.close();
+                    if (remote != null) {
+                        // En el bucket el archivo sobrevive a los reinicios; la copia local era solo de paso.
+                        remote.put(key, target, size);
+                        Files.deleteIfExists(target);
+                    }
+                    return new Stored(key, size, sha);
                 }
             }
         } catch (IOException e) {
@@ -156,11 +167,44 @@ public class StorageService {
         return p;
     }
 
+    private boolean local(String key) {
+        return Files.exists(resolve(key));
+    }
+
+    /** true si el archivo está en el disco o en el almacenamiento externo. */
+    public boolean exists(String key) {
+        return local(key) || (remote != null && remote.size(key) >= 0);
+    }
+
+    /** Archivo listo para enviarlo en una respuesta (del disco o del almacenamiento externo). */
+    public org.springframework.core.io.Resource open(String key) {
+        if (local(key) || remote == null) {
+            var file = new org.springframework.core.io.FileSystemResource(resolve(key));
+            if (!file.exists()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El archivo ya no está en el almacenamiento.");
+            return file;
+        }
+        long size = remote.size(key);
+        InputStream in = size < 0 ? null : remote.get(key);
+        if (in == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "El archivo ya no está en el almacenamiento.");
+        return new org.springframework.core.io.InputStreamResource(in) {
+            @Override
+            public long contentLength() {
+                return size;
+            }
+        };
+    }
+
     /** Lee un archivo completo a memoria para analizarlo; los muy grandes se rechazan. */
     public byte[] read(String key) {
         try {
-            if (Files.size(resolve(key)) > MAX_READ_BYTES) {
+            long size = local(key) || remote == null ? Files.size(resolve(key)) : remote.size(key);
+            if (size > MAX_READ_BYTES) {
                 throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "El archivo es demasiado grande para analizarlo (máximo 40 MB).");
+            }
+            if (!local(key) && remote != null) {
+                try (InputStream in = open(key).getInputStream()) {
+                    return in.readAllBytes();
+                }
             }
             return Files.readAllBytes(resolve(key));
         } catch (IOException e) {
@@ -169,6 +213,11 @@ public class StorageService {
     }
 
     public void deleteQuietly(String key) {
+        try {
+            if (remote != null) remote.delete(key);
+        } catch (RuntimeException ignored) {
+            // Queda huérfano en el bucket; no impide borrar el registro.
+        }
         try {
             Files.deleteIfExists(resolve(key));
         } catch (IOException | ResponseStatusException ignored) {
