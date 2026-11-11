@@ -31,10 +31,13 @@ spring:
     caffeine:
       # recordStats: aciertos y fallos visibles en /api/v1/system/cache (panel de Almacenamiento).
       spec: maximumSize=2000,expireAfterWrite=10m,recordStats
-  jackson:
+  jackson2:
     default-property-inclusion: non_null
     serialization:
       write-dates-as-timestamps: false
+  http:
+    converters:
+      preferred-json-mapper: jackson2
 
 server:
   port: ${PORT:8080}
