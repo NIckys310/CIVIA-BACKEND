@@ -3,6 +3,8 @@ package com.civia.config;
 import com.civia.security.KeyMaterial;
 import com.civia.security.BodyLimitFilter;
 import com.civia.security.RateLimitFilter;
+import com.civia.security.SealFilter;
+import com.civia.security.SealedChannel;
 import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.List;
@@ -68,12 +70,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/password/check",
                                 "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset", "/api/v1/auth/email/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/password-policy", "/api/v1/status").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/seal").permitAll()
                         .requestMatchers("/api/v1/openapi.json", "/api/v1/openapi.json/**", "/api/docs", "/api/docs/**", "/api/swagger-ui/**", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(o -> o.jwt(j -> {}))
                 .addFilterBefore(new RateLimitFilter(authPerMinute, apiPerMinute), BearerTokenAuthenticationFilter.class)
                 .addFilterBefore(new BodyLimitFilter(maxJsonBytes), BearerTokenAuthenticationFilter.class)
+                // Canal sellado: descifra el cuerpo antes de autenticar y cifra la respuesta JSON al salir.
+                .addFilterBefore(new SealFilter(sealedChannel()), BearerTokenAuthenticationFilter.class)
                 .headers(h -> h
                         .contentSecurityPolicy(c -> c.policyDirectives(CSP))
                         .frameOptions(f -> f.deny())
@@ -88,12 +93,19 @@ public class SecurityConfig {
         CorsConfiguration c = new CorsConfiguration();
         c.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::strip).filter(s -> !s.isEmpty()).toList());
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        c.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        c.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", SealFilter.HEADER));
+        c.setExposedHeaders(List.of(SealFilter.SEALED));
         c.setAllowCredentials(true);
         c.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", c);
         return source;
+    }
+
+    /** Claves de los canales sellados (solo en memoria). */
+    @Bean
+    SealedChannel sealedChannel() {
+        return new SealedChannel();
     }
 
     @Bean
